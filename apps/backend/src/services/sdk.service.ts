@@ -22,19 +22,15 @@ export class SdkService {
   async receiveEvents(input: ReceiveSdkEventsInput) {
     const { siteKey, sessionId, sentAt, events } = input;
 
+    console.log(`[SDK_LOG] Recebendo ${events?.length} eventos. Session: ${sessionId}`);
+
     if (!siteKey) throw new Error('siteKey é obrigatório');
     if (!sessionId) throw new Error('sessionId é obrigatório');
     if (!Array.isArray(events) || events.length === 0) {
       throw new Error('events deve ser um array com pelo menos um item');
     }
 
-    await this.upsertBrowserSession(siteKey, sessionId);
-
-    for (const event of events) {
-      this.validateEvent(event);
-      await this.upsertPageVisit(sessionId, event);
-      await this.insertSdkEvent(siteKey, sessionId, event);
-    }
+    await this.upsertSessionWithEvents(siteKey, sessionId, events);
 
     return {
       siteKey,
@@ -44,29 +40,69 @@ export class SdkService {
     };
   }
 
-  async listRecentEvents(limit = 20) {
+  async listRecentEvents(limit = 20, siteKey?: string) {
+    const filters = [];
+    const values: any[] = [limit];
+
+    if (siteKey) {
+      filters.push(`s.site_key = $2`);
+      values.push(siteKey);
+    }
+
+    const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+
     const result = await pg.query(
       `
         SELECT
-          event_id,
-          site_key,
-          session_id,
-          page_id,
-          event_type,
-          url,
-          path,
-          title,
-          occurred_at,
-          metadata,
-          created_at
-        FROM sdk_events
-        ORDER BY created_at DESC
+          s.site_key,
+          s.session_id,
+          e->>'eventId' as event_id,
+          e->>'type' as event_type,
+          e->>'url' as url,
+          e->>'path' as path,
+          e->>'title' as title,
+          e->>'occurredAt' as occurred_at,
+          e->'metadata' as metadata,
+          s.created_at
+        FROM browser_sessions s,
+        LATERAL jsonb_array_elements(s.events) e
+        ${whereClause}
+        ORDER BY (e->>'occurredAt')::timestamptz DESC
         LIMIT $1
       `,
-      [limit],
+      values
     );
 
     return result.rows;
+  }
+
+  async getStats(siteKey: string) {
+    if (!siteKey) throw new Error('siteKey é obrigatório');
+
+    // Usuários Ativos: Sessões ativas nos últimos 5 minutos (ou seja, 5 * 60 = 300 segundos)
+    const activeUsersResult = await pg.query(`
+      SELECT COUNT(DISTINCT session_id) as active_users
+      FROM browser_sessions
+      WHERE site_key = $1 AND last_seen_at >= NOW() - INTERVAL '5 minutes'
+    `, [siteKey]);
+
+    const activeUsers = parseInt(activeUsersResult.rows[0].active_users, 10);
+
+    // Tempo médio por página em segundos
+    const timeOnPageResult = await pg.query(`
+      SELECT AVG(CAST(e->'metadata'->>'duration' AS numeric)) as avg_time
+      FROM browser_sessions s,
+      LATERAL jsonb_array_elements(s.events) e
+      WHERE s.site_key = $1 AND e->>'type' = 'time_on_page'
+    `, [siteKey]);
+
+    const avgTimeRaw = timeOnPageResult.rows[0].avg_time;
+    const avgTimeSeconds = avgTimeRaw ? Math.round(parseFloat(avgTimeRaw)) : 0;
+
+    return {
+      activeUsers,
+      avgTimeSeconds
+    };
   }
 
   private validateEvent(event: SdkEvent) {
@@ -78,63 +114,21 @@ export class SdkService {
     if (!event.title) throw new Error('title é obrigatório');
   }
 
-  private async upsertBrowserSession(siteKey: string, sessionId: string) {
+  private async upsertSessionWithEvents(siteKey: string, sessionId: string, newEvents: SdkEvent[]) {
+    // Valida todos antes de inserir
+    newEvents.forEach(e => this.validateEvent(e));
+    
     await pg.query(
       `
-        INSERT INTO browser_sessions (site_key, session_id)
-        VALUES ($1, $2)
+        INSERT INTO browser_sessions (site_key, session_id, events)
+        VALUES ($1, $2, $3::jsonb)
         ON CONFLICT (site_key, session_id)
-        DO UPDATE SET last_seen_at = NOW()
+        DO UPDATE SET 
+          last_seen_at = NOW(),
+          events = COALESCE(browser_sessions.events, '[]'::jsonb) || EXCLUDED.events
       `,
-      [siteKey, sessionId],
+      [siteKey, sessionId, JSON.stringify(newEvents)]
     );
-  }
-
-  private async upsertPageVisit(sessionId: string, event: SdkEvent) {
-    await pg.query(
-      `
-        INSERT INTO page_visits (session_id, page_id, url, path, title)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (session_id, page_id)
-        DO UPDATE SET
-          url = EXCLUDED.url,
-          path = EXCLUDED.path,
-          title = EXCLUDED.title
-      `,
-      [sessionId, event.pageId, event.url, event.path, event.title],
-    );
-  }
-
-  private async insertSdkEvent(siteKey: string, sessionId: string, event: SdkEvent) {
-    await pg.query(
-      `
-        INSERT INTO sdk_events (
-          event_id,
-          site_key,
-          session_id,
-          page_id,
-          event_type,
-          url,
-          path,
-          title,
-          occurred_at,
-          metadata
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
-        ON CONFLICT (event_id) DO NOTHING
-      `,
-      [
-        event.eventId,
-        siteKey,
-        sessionId,
-        event.pageId,
-        event.type,
-        event.url,
-        event.path,
-        event.title,
-        event.occurredAt ?? new Date().toISOString(),
-        JSON.stringify(event.metadata ?? {}),
-      ],
-    );
+    console.log(`[SDK_LOG] ${newEvents.length} eventos agrupados salvos na sessão ${sessionId}`);
   }
 }

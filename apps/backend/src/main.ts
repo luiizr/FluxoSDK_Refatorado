@@ -16,14 +16,23 @@ export const pg = new Client({
 
 const app = express();
 
-app.use((_, res, next) => {
+app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');    
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');    
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   next();
 });
 
 app.use(express.json());
+app.use((req, res, next) => {
+  console.log(`[BACKEND_TRAFFIC] ${req.method} ${req.url}`);
+  next();
+});
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use('/api', routes);
 

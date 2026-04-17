@@ -23,13 +23,37 @@ export class SdkController {
     }
   };
 
-  listRecentEvents = async (_request: Request, response: Response) => {
+  listRecentEvents = async (request: Request, response: Response) => {
     try {
-      const events = await this.sdkService.listRecentEvents();
+      const siteKey = request.query.siteKey as string | undefined;
+      const events = await this.sdkService.listRecentEvents(20, siteKey);
 
       return response.status(200).json({
         ok: true,
         data: events,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro interno';
+
+      return response.status(400).json({
+        ok: false,
+        message,
+      });
+    }
+  };
+
+  getStats = async (request: Request, response: Response) => {
+    try {
+      const siteKey = request.query.siteKey as string;
+      if (!siteKey) {
+        return response.status(400).json({ ok: false, message: 'siteKey é obrigatório' });
+      }
+
+      const stats = await this.sdkService.getStats(siteKey);
+
+      return response.status(200).json({
+        ok: true,
+        data: stats,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro interno';

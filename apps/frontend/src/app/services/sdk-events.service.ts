@@ -37,10 +37,21 @@ export class SdkEventsService {
     document.body.appendChild(script);
   }
 
-  async getRecentEvents(): Promise<LiveEvent[]> {
-    const response = await fetch(`${this.backendUrl}/api/sdk/events/recent`);
+  async getRecentEvents(siteKey?: string): Promise<LiveEvent[]> {
+    const url = new URL(`${this.backendUrl}/api/sdk/events/recent`);
+    if (siteKey) {
+      url.searchParams.append('siteKey', siteKey);
+    }
+    const response = await fetch(url.toString());
     const data = await response.json();
     return (data.data ?? []) as LiveEvent[];
+  }
+  async getStats(siteKey: string) {
+    const url = new URL(`${this.backendUrl}/api/sdk/stats`);
+    url.searchParams.append('siteKey', siteKey);
+    const response = await fetch(url.toString());
+    const data = await response.json();
+    return data.data;
   }
 }
 

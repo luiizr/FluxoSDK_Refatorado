@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "dev": "nx run-many --target=serve --projects=frontend,backend --parallel",
+    "dev": "nx run-many --target=serve -p frontend backend example-client --parallel=3",
     "back": "nx run backend:serve",
-    "front": "nx run frontend:serve"
+    "front": "nx run frontend:serve",
+    "example": "nx run example-client:serve --port=4002"
   },
   "private": true,
   "devDependencies": {
@@ -53,7 +54,7 @@
     "prettier": "~3.6.2",
     "react-refresh": "^0.10.0",
     "ts-jest": "^29.4.0",
-    "ts-node": "10.9.1",
+    "ts-node": "^10.9.1",
     "tslib": "^2.3.0",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.40.0",
