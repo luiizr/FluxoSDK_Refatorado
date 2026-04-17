@@ -25,6 +25,21 @@ export class SdkService {
     console.log(`[SDK_LOG] Recebendo ${events?.length} eventos. Session: ${sessionId}`);
 
     if (!siteKey) throw new Error('siteKey é obrigatório');
+
+    // Validar se a chave existe e se está ativa
+    const keyResult = await pg.query(
+      `SELECT active FROM site_keys WHERE public_key = $1`,
+      [siteKey]
+    );
+
+    if (keyResult.rowCount === 0) {
+      throw new Error('siteKey inválido ou inexistente');
+    }
+
+    if (!keyResult.rows[0].active) {
+      throw new Error('siteKey está desativado');
+    }
+
     if (!sessionId) throw new Error('sessionId é obrigatório');
     if (!Array.isArray(events) || events.length === 0) {
       throw new Error('events deve ser um array com pelo menos um item');

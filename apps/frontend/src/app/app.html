@@ -1,36 +1,147 @@
-<main class="auth-layout" *ngIf="!isAuthenticated()">
-  <div class="auth-container" style="max-width: 400px; margin: 100px auto; padding: 30px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
-    <div style="text-align: center; margin-bottom: 30px;">
-      <h2 style="color: #111827; margin-bottom: 10px;">{{ isRegistering() ? 'Criar Conta' : 'Acesse o FluxoSDK' }}</h2>
-      <p style="color: #6b7280; font-size: 14px;">{{ isRegistering() ? 'Comece a monitorar seus projetos' : 'Bem-vindo de volta' }}</p>
+﻿<main class="landing-layout" *ngIf="!isAuthenticated() && showLanding()">
+  <nav class="landing-nav">
+    <div class="landing-logo">
+      <span class="arrow-icon">&#x2197;</span> FluxoSDK
     </div>
+    <div class="landing-links">
+      <a href="#demo">Preview Interativo</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#github">Sobre o Projeto</a>
+    </div>
+    <div class="landing-actions-nav">
+      <a href="javascript:void(0)" style="color: #111; text-decoration: none; font-size: 20px;">&#x2315;</a>
+      <button class="pill-btn dark" (click)="showLanding.set(false)">
+        Login
+      </button>
+    </div>
+  </nav>
 
-    <form (submit)="authenticate($event)" style="display: flex; flex-direction: column; gap: 15px;">
-      <div>
-        <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px;">E-mail</label>
-        <input type="email" placeholder="seu@email.com" required [ngModel]="authEmail()" (ngModelChange)="authEmail.set($event)" name="email" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #d1d5db;">
+  <header class="landing-hero reveal-on-scroll">
+    <div class="hero-glow-layer"></div>
+    <h1 style="color: #111;">Onde grandes projetos<br>são construídos.</h1>
+    <p>Traga ideias à vida combinando anos de experiência com acompanhamento do DOM e tracking visual avançado.</p>
+    <div class="hero-actions">
+      <button class="pill-btn dark" (click)="showLanding.set(false)">Começar agora</button>
+      <button class="pill-btn outline">Falar conosco &#x2192;</button>
+    </div>
+  </header>
+
+  <div class="landing-preview reveal-on-scroll delay-100" id="demo" style="background: linear-gradient(135deg, #e4d8c8, #ccbba7);">
+    <div class="mockup-container">
+      <div class="main-title-glass">
+        <span>Eficiência e Visibilidade</span>
+        <h2>Transforme a experiência<br>dos seus projetos.</h2>
       </div>
       
-      <div>
-        <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px;">Senha</label>
-        <input type="password" placeholder="••••••••" required [ngModel]="authPassword()" (ngModelChange)="authPassword.set($event)" name="password" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #d1d5db;">
+      <!-- Floating Chips inside the mockup -->
+      <div class="floating-chip chip-1">
+        <img src="https://i.pravatar.cc/150?u=a" alt="Avatar">
+        <div class="chip-info"><strong>Floyd Miles</strong><span>CEO / Diretor</span></div>
+      </div>
+      <div class="floating-chip chip-2">
+        <img src="https://i.pravatar.cc/150?u=b" alt="Avatar">
+        <div class="chip-info"><strong>Brooklyn Simmons</strong><span>UX Designer</span></div>
+      </div>
+      <div class="floating-chip chip-3">
+        <img src="https://i.pravatar.cc/150?u=c" alt="Avatar">
+        <div class="chip-info"><strong>Eleanor Pena</strong><span>Marketing</span></div>
+      </div>
+      <div class="floating-chip chip-4">
+        <img src="https://i.pravatar.cc/150?u=d" alt="Avatar">
+        <div class="chip-info"><strong>Kristin Watson</strong><span>QA Tester</span></div>
+      </div>
+      <div class="floating-chip chip-5">
+        <img src="https://i.pravatar.cc/150?u=e" alt="Avatar">
+        <div class="chip-info"><strong>Ronald Richards</strong><span>Product Manager</span></div>
+      </div>
+      <!-- Additional Chips -->
+      <div class="floating-chip chip-6">
+        <img src="https://i.pravatar.cc/150?u=f" alt="Avatar">
+        <div class="chip-info"><strong>Esther Howard</strong><span>Web Developer</span></div>
+      </div>
+      <div class="floating-chip chip-7">
+        <img src="https://i.pravatar.cc/150?u=g" alt="Avatar">
+        <div class="chip-info"><strong>Cody Fisher</strong><span>Software Eng</span></div>
+      </div>
+      <div class="floating-chip chip-8">
+        <img src="https://i.pravatar.cc/150?u=h" alt="Avatar">
+        <div class="chip-info"><strong>Theresa Webb</strong><span>HR Manager</span></div>
+      </div>
+      <div class="floating-chip chip-9">
+        <img src="https://i.pravatar.cc/150?u=i" alt="Avatar">
+        <div class="chip-info"><strong>Savannah Nguyen</strong><span>Legal Counsel</span></div>
+      </div>
+      <div class="floating-chip chip-10">
+        <img src="https://i.pravatar.cc/150?u=j" alt="Avatar">
+        <div class="chip-info"><strong>Courtney Henry</strong><span>Medical Assistant</span></div>
+      </div>
+    </div>
+  </div>
+
+  <section class="landing-features reveal-on-scroll delay-200" id="recursos">
+    <div class="features-header reveal-on-scroll">
+      <h2>O poder de entender<br>seus usuários em tempo real.</h2>
+      <p>Entenda exatamente como os usuários interagem com seus projetos, sem configurações complexas e com uma visão analítica centralizada, desenvolvida para gestores e times de alta performance.</p>
+    </div>
+
+    <div class="bento-grid">
+      <div class="bento-card bento-large reveal-on-scroll delay-100">
+        <div class="bento-content">
+          <span class="bento-badge">Tracking Invisível</span>
+          <h3>Live Events em Milissegundos</h3>
+          <p>Receba dados de acessos, cliques detalhados por elemento e envios de formulário diretamente na sua timeline de gerenciamento de maneira fluida e não bloqueante.</p>
+        </div>
+        <div class="bento-visual visual-glow"></div>
       </div>
 
-      <button type="submit" [disabled]="isAuthLoading()" style="background: #2563eb; color: white; padding: 12px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 10px;">
-        {{ isAuthLoading() ? 'Aguarde...' : (isRegistering() ? 'Cadastrar' : 'Entrar') }}
+      <div class="bento-card reveal-on-scroll delay-200">
+        <div class="bento-content">
+          <span class="bento-badge">Estrutura</span>
+          <h3>DOM Summary</h3>
+          <p>Analise a estrutura do site rastreado e veja botões, links e inputs mudando enquanto o usuário navega.</p>
+        </div>
+      </div>
+
+      <div class="bento-card reveal-on-scroll delay-300">
+        <div class="bento-content">
+          <span class="bento-badge">Performance</span>
+          <h3>Ultra Leve & Seguro</h3>
+          <p>Script assíncrono de apenas 2kb que garante a nota máxima de Lighthouse e o consentimento de dados seguro.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<main class="auth-layout" *ngIf="!isAuthenticated() && !showLanding()">
+  <div class="auth-container">
+    <h2>{{ isRegistering() ? 'Criar Conta' : 'Acesse o FluxoSDK' }}</h2>
+    <p>{{ isRegistering() ? 'Comece a monitorar seus projetos hoje' : 'Bem-vindo de volta, gerencie seus eventos' }}</p>
+
+    <form (submit)="authenticate($event)">
+      <div class="input-group">
+        <label>E-mail corporativo</label>
+        <input type="email" placeholder="seu@email.com" required [ngModel]="authEmail()" (ngModelChange)="authEmail.set($event)" name="email">
+      </div>
+
+      <div class="input-group">
+        <label>Senha</label>
+        <input type="password" placeholder="••••••••" required [ngModel]="authPassword()" (ngModelChange)="authPassword.set($event)" name="password">
+      </div>
+
+      <button type="submit" class="pill-btn dark" style="width: 100%; justify-content: center; margin-top: 10px;" [disabled]="isAuthLoading()">
+        {{ isAuthLoading() ? 'Aguarde...' : (isRegistering() ? 'Cadastrar agora' : 'Fazer Login') }} &#x2192;
       </button>
     </form>
 
-    <div style="margin-top: 20px; text-align: center;">
-      <button (click)="isRegistering.set(!isRegistering()); authEmail.set(''); authPassword.set('')" style="background: transparent; border: none; color: #2563eb; cursor: pointer; text-decoration: underline;">
-        {{ isRegistering() ? 'Já tenho uma conta' : 'Quero me cadastrar' }}
+    <div style="margin-top: 24px; text-align: center;">
+      <button (click)="isRegistering.set(!isRegistering()); authEmail.set(''); authPassword.set('')" style="background: transparent; border: none; color: #666; cursor: pointer; text-decoration: underline; font-size: 14px; font-weight: 500;">
+        {{ isRegistering() ? 'Já tenho uma conta' : 'Ainda não tem conta? Cadastrar-se' }}
       </button>
     </div>
   </div>
 </main>
 
 <main class="dashboard-layout" *ngIf="isAuthenticated()">
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="brand">
       <div class="logo"></div>
@@ -47,12 +158,12 @@
         }
       </select>
     </div>
-    
+
     <nav class="nav-menu" style="margin-top: 15px;">
       <a href="#" [class.active]="activeTab() === 'overview'" (click)="setTab('overview', $event)">Visão Geral</a>
       <a href="#" [class.active]="activeTab() === 'logs'" (click)="setTab('logs', $event)">Logs e Eventos</a>
       <a href="#" [class.active]="activeTab() === 'sessions'" (click)="setTab('sessions', $event)">Sessões Ativas</a>
-      
+
       <div style="margin: 15px 0 5px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; font-weight: 600;">Configurações</div>
       <a href="#" [class.active]="activeTab() === 'settings'" (click)="setTab('settings', $event)">Gerenciar Sites</a>
       <a href="#" [class.active]="activeTab() === 'site-configs'" (click)="setTab('site-configs', $event)">Opções do Site</a>
@@ -80,17 +191,17 @@
     </header>
 
     @if (!selectedSiteKey() && activeTab() !== 'settings') {
-      <div class="empty-state" style="margin-top: 40px; text-align: center; padding: 40px; background: white; border-radius: 12px; border: 1px solid #e5e7eb;">
+      <div class="empty-state" style="margin-top: 40px; text-align: center; padding: 40px; background: white; border-radius: 12px; border: 1px solid #e5e7eb;"> 
         <div style="font-size: 48px; margin-bottom: 20px;">🌐</div>
         <h2 style="color: #111827; margin-bottom: 10px;">Nenhum site selecionado</h2>
         <p style="color: #6b7280; margin-bottom: 20px; font-size: 16px;">Selecione um site no menu lateral ou cadastre um novo para começar.</p>
-        <button (click)="setTab('settings', $event)" style="background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px;">Ir para Gerenciar Sites</button>
+        <button (click)="setTab('settings', $event)" style="background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px;">Ir para Gerenciar Sites</button>      
       </div>
     }
 
     @if (selectedSiteKey()) {
       @if (activeTab() === 'overview') {
-        
+
         @if (totalEvents() === 0) {
           <div class="card panel setup-guide" style="background: linear-gradient(to right, #eff6ff, #f8fafc); border-left: 4px solid #3b82f6; margin-bottom: 20px;">
             <header class="panel-header">
@@ -113,7 +224,7 @@
               <strong>{{ activeUsers() }}</strong>
             </div>
           </article>
-          
+
           <article class="stat-card green">
             <div class="stat-icon">⏱️</div>
             <div class="stat-details">
@@ -190,34 +301,33 @@
                   @for (event of liveEvents() | slice:0:15; track trackByEventId($index, event)) {
                     <div class="timeline-item">
                       <div class="timeline-marker" [class.bg-blue]="event.event_type === 'page_view'" [class.bg-green]="event.event_type === 'click'" [class.bg-purple]="event.event_type === 'dom_summary'" [class.bg-orange]="event.event_type === 'form_submit'"></div>
-                      
+
                       <div class="timeline-content">
                         <div class="timeline-header">
                           <span class="tag" [class.tag-blue]="event.event_type === 'page_view'" [class.tag-green]="event.event_type === 'click'" [class.tag-purple]="event.event_type === 'dom_summary'" [class.tag-orange]="event.event_type === 'form_submit'">
                             {{ event.event_type | uppercase }}
                           </span>
-                          <time>{{ event.created_at | date:'HH:mm:ss' }}</time>
+                          <time>{{ event.created_at | date:'HH:mm:ss' }}</time> 
                         </div>
 
                         <div class="timeline-data">
-                          <p><strong>Path:</strong> {{ event.path }}</p>
-                          <p><strong>Página:</strong> <span class="truncate" title="{{ event.title }}">{{ event.title }}</span></p>
-                          <p><strong>HashID:</strong> <span class="hash" title="{{ event.session_id }}">{{ (event.session_id || '').substring(0, 8) }}...</span></p>
-                        </div>
+                          <p><strong>ID:</strong> <span>{{ event.event_id }}</span></p>
+                          <p><strong>Rota:</strong> <span>{{ event.path }}</span></p>
 
-                        @if (event.metadata && formatMetadata(event.metadata) !== '{}') {
-                          <details class="metadata-dropdown">
-                            <summary>Ver Metadados (JSON)</summary>
-                            <pre>{{ formatMetadata(event.metadata) }}</pre>
-                          </details>
-                        }
+                          @if (event.metadata) {
+                            <details class="metadata-dropdown">
+                              <summary>Ver metadados (+)</summary>
+                              <pre>{{ event.metadata | json }}</pre>
+                            </details>
+                          }
+                        </div>
                       </div>
                     </div>
                   }
                 </div>
               } @else {
                 <div class="empty-state">
-                  <p>O feed de eventos está vazio para este site. Aguardando dados...</p>
+                  <p>Aguardando interações...</p>
                 </div>
               }
             </div>
@@ -228,32 +338,11 @@
       @if (activeTab() === 'logs') {
         <div class="card panel">
           <header class="panel-header">
-            <h3>Histórico Completo de Eventos</h3>
-            <p>Visão tabular de todas as ações que passaram pelo servidor.</p>
+            <h3>Histórico Consolidado</h3>
+            <p>Visualize todos os eventos recebidos com busca e filtros.</p>
           </header>
-          <div class="panel-body log-container" style="max-height: 70vh;">
-            <table class="table-logs" style="width: 100%; border-collapse: collapse; text-align: left;">
-              <thead>
-                <tr style="border-bottom: 2px solid #e5e7eb;">
-                  <th style="padding: 12px; color: #4b5563;">Data/Hora</th>
-                  <th style="padding: 12px; color: #4b5563;">Tipo</th>
-                  <th style="padding: 12px; color: #4b5563;">URL Path</th>
-                  <th style="padding: 12px; color: #4b5563;">SiteKey</th>
-                  <th style="padding: 12px; color: #4b5563;">Sessão</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (event of liveEvents(); track trackByEventId($index, event)) {
-                  <tr style="border-bottom: 1px solid #f3f4f6;">
-                    <td style="padding: 12px;">{{ event.created_at | date:'dd/MM/yyyy HH:mm:ss' }}</td>
-                    <td style="padding: 12px;"><span class="badge" style="font-weight: 600; font-size: 13px; color: #4b5563; background: #e5e7eb; padding: 4px 8px; border-radius: 4px;">{{ event.event_type }}</span></td>
-                    <td style="padding: 12px;"><code style="color: #db2777;">{{ event.path }}</code></td>
-                    <td style="padding: 12px; font-size: 13px; color: #6b7280;">{{ event.site_key }}</td>
-                    <td style="padding: 12px; font-size: 13px;"><span class="hash">{{ (event.session_id || '').substring(0, 10) }}...</span></td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+          <div class="panel-body">
+            <p style="color: #6b7280; font-size: 14px;">Módulo de busca avançada em desenvolvimento...</p>
           </div>
         </div>
       }
@@ -261,16 +350,11 @@
       @if (activeTab() === 'sessions') {
         <div class="card panel">
           <header class="panel-header">
-            <h3>Sessões Mais Recentes</h3>
-            <p>Usuários monitorados ativamente (Agrupados por HashID)</p>
+            <h3>Sessões Ativas (Em tempo real)</h3>
+            <p>Veja os usuários que estão no site neste exato momento.</p>
           </header>
           <div class="panel-body">
-            <p style="color: #6b7280; font-size: 15px;">
-              Atualmente, {{ totalEvents() }} evento(s) foram recebidos. As sessões são baseadas no token criptográfico injetado no navegador do usuário e expiram após fechamento/reloading hard.
-            </p>
-            <div style="margin-top: 20px; padding: 20px; border: 1px dashed #cbcccf; border-radius: 8px; text-align: center; color: #9ca3af;">
-              Em desenvolvimento. A visualização detalhada de fluxo de sessão (funis) estará disponível em breve.
-            </div>
+            <p style="color: #6b7280; font-size: 14px;">Módulo de heatmaps e sessões ricas em desenvolvimento...</p>
           </div>
         </div>
       }
@@ -279,140 +363,61 @@
     @if (activeTab() === 'settings') {
       <div class="card panel">
         <header class="panel-header">
-          <h3>Gerenciar Sites</h3>
-          <p>Cadastre novos sites para gerar Site Keys únicas de acompanhamento.</p>
+          <h3>Seus Sites</h3>
+          <p>Adicione ou remova propriedades monitoradas.</p>
         </header>
-        <div class="panel-body">
-          
-          <form (submit)="registerSite($event)" style="background: #f9fafb; padding: 25px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #e5e7eb; display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; align-items: end;">
-            <div>
-              <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px; color: #374151;">Nome do Site/App</label>
-              <input type="text" [(ngModel)]="newSiteName" name="siteName" placeholder="Ex: Meu E-commerce" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; outline: none; transition: border 0.2s;" required>
-            </div>
-            <div>
-              <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px; color: #374151;">Domínio</label>
-              <input type="text" [(ngModel)]="newSiteDomain" name="siteDomain" placeholder="Ex: www.meusite.com.br" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; outline: none; transition: border 0.2s;" required>
-            </div>
-            <div>
-              <button type="submit" [disabled]="isCreatingSite()" style="height: 42px; background: #2563eb; color: white; border: none; padding: 0 24px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
-                {{ isCreatingSite() ? 'Gerando Key...' : '+ Cadastrar Novo Site' }}
-              </button>
-            </div>
-          </form>
 
-          <h4 style="margin-bottom: 15px; color: #111827;">Sites Cadastrados</h4>
-          <table class="table-logs" style="width: 100%; border-collapse: collapse; text-align: left;">
+        <div class="panel-body">
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 24px;">
+            <h4 style="margin: 0 0 16px 0; font-size: 14px; text-transform: uppercase; color: #4b5563;">Novos Ambientes</h4>
+            
+            <form (submit)="registerSite($event)" style="display: flex; gap: 12px; align-items: flex-end;">
+              <div style="flex: 1;">
+                <label style="display: block; font-size: 12px; margin-bottom: 6px; font-weight: 500;">Nome interno</label>
+                <input type="text" [ngModel]="newSiteName()" (ngModelChange)="newSiteName.set($event)" name="siteName" placeholder="Ex: Produção" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #d1d5db;">
+              </div>
+              <div style="flex: 1;">
+                <label style="display: block; font-size: 12px; margin-bottom: 6px; font-weight: 500;">URL / Domínio</label>
+                <input type="text" [ngModel]="newSiteDomain()" (ngModelChange)="newSiteDomain.set($event)" name="siteDomain" placeholder="Ex: meudominio.com.br" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #d1d5db;">
+              </div>
+              <button type="submit" [disabled]="isCreatingSite()" style="background: #10b981; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; height: 41px;">
+                {{ isCreatingSite() ? 'Gerando...' : '+ Cadastrar Site' }}
+              </button>
+            </form>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px; text-align: left;">
             <thead>
-              <tr style="border-bottom: 2px solid #e5e7eb; background: #f9fafb;">
-                <th style="padding: 15px; color: #4b5563; border-top-left-radius: 8px;">Nome</th>
-                <th style="padding: 15px; color: #4b5563;">Domínio</th>
-                <th style="padding: 15px; color: #4b5563;">Site Key (Public Key)</th>
-                <th style="padding: 15px; color: #4b5563;">Instalação</th>
-                <th style="padding: 15px; color: #4b5563; border-top-right-radius: 8px;">Ações</th>
+              <tr style="border-bottom: 2px solid #e5e7eb;">
+                <th style="padding: 12px; color: #4b5563;">Nome</th>
+                <th style="padding: 12px; color: #4b5563;">Domínio</th>
+                <th style="padding: 12px; color: #4b5563;">Chave de Integração (SiteKey)</th>
+                <th style="padding: 12px; color: #4b5563; text-align: right;">Ações</th>
               </tr>
             </thead>
             <tbody>
-              @for (site of sites(); track site.id) {
-                <tr style="border-bottom: 1px solid #f3f4f6;">
-                  <td style="padding: 15px; font-weight: 600; color: #111827;">{{ site.name }}</td>
-                  <td style="padding: 15px; color: #6b7280;">{{ site.domain }}</td>
-                  <td style="padding: 15px;">
-                    <code style="background: #eff6ff; padding: 6px 10px; border-radius: 6px; color: #1d4ed8; font-weight: 600; font-size: 13px;">{{ site.siteKey }}</code>
-                  </td>
-                  <td style="padding: 15px;">
-                    <code style="font-size: 11px; background: #f3f4f6; padding: 6px; border-radius: 4px; display: block; max-width: 250px; overflow-x: auto; white-space: nowrap; color: #4b5563;">
-                      &lt;script src="{{ sdkLink }}" data-site-key="{{ site.siteKey }}"&gt;&lt;/script&gt;
-                    </code>
-                  </td>
-                  <td style="padding: 15px;">
-                    <button (click)="deleteSite(site.id, site.siteKey)" style="background: transparent; color: #dc2626; border: 1px solid #fca5a5; padding: 6px 10px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 12px; display: flex; align-items: center; gap: 5px;">Excluir</button>
-                  </td>
-                </tr>
-              }
               @if (sites().length === 0) {
                 <tr>
-                  <td colspan="4" style="padding: 30px; text-align: center; color: #6b7280;">Nenhum site cadastrado. Utilize o formulário acima para criar o primeiro.</td>
+                  <td colspan="4" style="padding: 20px; text-align: center; color: #6b7280;">Nenhum site cadastrado ainda.</td>
+                </tr>
+              }
+              @for (site of sites(); track site.id) {
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="padding: 12px; font-weight: 500;">{{ site.name }}</td>
+                  <td style="padding: 12px; color: #6b7280;">{{ site.domain }}</td>
+                  <td style="padding: 12px;">
+                    <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; color: #0f172a; font-size: 13px;">{{ site.siteKey }}</code>
+                  </td>
+                  <td style="padding: 12px; text-align: right;">
+                    <button (click)="deleteSite(site.id, site.siteKey)" style="background: transparent; color: #ef4444; border: none; cursor: pointer; font-size: 13px; font-weight: 500;">Excluir</button>
+                  </td>
                 </tr>
               }
             </tbody>
           </table>
+
         </div>
       </div>
     }
-
-    <!-- TAB: MY PROFILE (Mock) -->
-    @if (activeTab() === 'profile') {
-      <div class="card panel setup-guide" style="max-width: 600px;">
-        <header class="panel-header">
-          <h3>Meu Perfil</h3>
-          <p>Atualize suas informações pessoais e credenciais de acesso.</p>
-        </header>
-        <div class="panel-body">
-          <form style="display: flex; flex-direction: column; gap: 15px;">
-            <div>
-              <label style="display: block; font-weight: 500; font-size: 13px; margin-bottom: 5px; color: #374151;">Nome Completo</label>
-              <input type="text" value="Usuário Admin" placeholder="Seu nome" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb;">
-            </div>
-            <div>
-              <label style="display: block; font-weight: 500; font-size: 13px; margin-bottom: 5px; color: #374151;">Endereço de E-mail</label>
-              <input type="email" value="{{ authEmail() }}" placeholder="email@exemplo.com" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb;">
-            </div>
-            <div>
-              <label style="display: block; font-weight: 500; font-size: 13px; margin-bottom: 5px; color: #374151;">Nova Senha</label>
-              <input type="password" placeholder="Deixe em branco para não alterar" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #d1d5db;">
-            </div>
-            
-            <div style="margin-top: 10px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
-              <button type="button" style="background: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Salvar Alterações</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    }
-
-    <!-- TAB: SITE CONFIGS (Mock) -->
-    @if (activeTab() === 'site-configs') {
-      <div class="card panel setup-guide" style="max-width: 600px;">
-        <header class="panel-header">
-          <h3>Opções do Site</h3>
-          <p>Ative ou desative o que o rastreador deve coletar para o site atual ({{ selectedSiteKey() || 'Nenhum' }}).</p>
-        </header>
-
-        <div class="panel-body">
-          <div style="display: flex; flex-direction: column; gap: 20px;">
-            
-            <div style="display: flex; align-items: flex-start; gap: 15px; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6;">
-              <input type="checkbox" checked id="toggle-pageviews" style="width: 18px; height: 18px; margin-top: 3px; cursor: pointer; accent-color: #2563eb;">
-              <div>
-                <label for="toggle-pageviews" style="font-weight: 600; color: #111827; display: block; margin-bottom: 3px; cursor: pointer;">Rastrear PageViews (Navegação)</label>
-                <p style="margin: 0; font-size: 13px; color: #6b7280;">Coleta URLs acessadas e tempo de permanência em cada página.</p>
-              </div>
-            </div>
-
-            <div style="display: flex; align-items: flex-start; gap: 15px; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6;">
-              <input type="checkbox" checked id="toggle-clicks" style="width: 18px; height: 18px; margin-top: 3px; cursor: pointer; accent-color: #2563eb;">
-              <div>
-                <label for="toggle-clicks" style="font-weight: 600; color: #111827; display: block; margin-bottom: 3px; cursor: pointer;">Capturar Cliques em Botões e Links</label>
-                <p style="margin: 0; font-size: 13px; color: #6b7280;">Monitora em quais elementos HTML os usuários estão clicando.</p>
-              </div>
-            </div>
-
-            <div style="display: flex; align-items: flex-start; gap: 15px; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6;">
-              <input type="checkbox" checked id="toggle-forms" style="width: 18px; height: 18px; margin-top: 3px; cursor: pointer; accent-color: #2563eb;">
-              <div>
-                <label for="toggle-forms" style="font-weight: 600; color: #111827; display: block; margin-bottom: 3px; cursor: pointer;">Interceptar Envio de Formulários (Leads)</label>
-                <p style="margin: 0; font-size: 13px; color: #6b7280;">Rastreia sempre que um usuário submeter com sucesso um formulário HTML e lista os campos preenchidos.</p>
-              </div>
-            </div>
-
-            <div style="margin-top: 10px;">
-              <button type="button" style="background: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Aplicar Configurações</button>
-            </div>
-            
-          </div>
-        </div>
-      </div>
-    }
-
   </section>
 </main>

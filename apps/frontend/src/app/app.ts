@@ -1,4 +1,4 @@
-﻿import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit, inject, signal, HostListener } from '@angular/core';
 import { CommonModule, DatePipe, JsonPipe } from '@angular/common';
 import { SdkEventsService, type LiveEvent } from './services/sdk-events.service';
 import { SitesService, type Site } from './services/sites.service';
@@ -21,6 +21,24 @@ type DomSummary = {
   styleUrl: './app.scss',
 })
 export class App implements OnInit, OnDestroy {
+  @HostListener('window:scroll', [])
+  onScroll() {
+    this.checkScrollReveal();
+  }
+
+  checkScrollReveal() {
+    const reveals = document.querySelectorAll('.reveal-on-scroll');
+    const windowHeight = window.innerHeight;
+    for (let i = 0; i < reveals.length; i++) {
+        const elementTop = reveals[i].getBoundingClientRect().top;
+        const elementVisible = 50;
+
+        if (elementTop < windowHeight - elementVisible) {
+          reveals[i].classList.add('is-visible');
+        }
+    }
+  }
+
   private readonly sdkEventsService = inject(SdkEventsService);
   private readonly sitesService = inject(SitesService);
   private readonly authService = inject(AuthService);
@@ -28,6 +46,7 @@ export class App implements OnInit, OnDestroy {
   // Auth State
   protected isAuthenticated = signal<boolean>(false);
   protected isRegistering = signal<boolean>(false);
+  protected showLanding = signal<boolean>(true);
   protected isAuthLoading = signal<boolean>(false);
   protected authEmail = signal<string>('');
   protected authPassword = signal<string>('');
@@ -47,13 +66,17 @@ export class App implements OnInit, OnDestroy {
 
   protected sites = signal<Site[]>([]);
   protected selectedSiteKey = signal<string>('');
-  
+
+  // Demo Interactive State
+  protected demoEvents = signal<{type: string, detail: string, time: string}[]>([]);
+
   // Create Site form
   protected newSiteName = signal<string>('');
   protected newSiteDomain = signal<string>('');
   protected isCreatingSite = signal<boolean>(false);
 
   async ngOnInit() {
+    setTimeout(() => this.checkScrollReveal(), 100);
     const storedUserId = localStorage.getItem('fluxosdk_user_id');
     if (storedUserId) {
       this.isAuthenticated.set(true);
@@ -98,6 +121,7 @@ export class App implements OnInit, OnDestroy {
   logout() {
     localStorage.removeItem('fluxosdk_user_id');
     this.isAuthenticated.set(false);
+    this.showLanding.set(true);
     this.sites.set([]);
     this.selectedSiteKey.set('');
     if (this.pollInterval) clearInterval(this.pollInterval);
