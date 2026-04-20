@@ -60,17 +60,25 @@
   gap: 10px;
 }
 
-.lp-brand__mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--fx-primary), var(--fx-primary-dark));
-  box-shadow: 0 12px 24px rgba(16,185,129,0.18);
+.lp-brand__logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .lp-brand__name {
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
+}
+
+@media (max-width: 560px) {
+  .lp-brand__logo {
+  width: 36px;
+  height: 36px;
+  }
 }
 
 .lp-nav {
@@ -316,8 +324,8 @@
 /* Detailed device mock (angled like the reference) */
 .lp-device {
   position: relative;
-  width: 330px;
-  height: 560px;
+  width: 280px;  /* Reduzido de 330px */
+  height: 520px; /* Reduzido de 560px */
   transform-style: preserve-3d;
   /* Strong 3D: visible thickness + iPhone-ish stance */
   transform: rotateY(-28deg) rotateX(12deg) rotateZ(1.5deg);
@@ -325,22 +333,22 @@
 
 .lp-device__shadow {
   position: absolute;
-  inset: 34px -14px -14px 14px;
+  inset: 40px -10px -10px 10px;
   background:
-    radial-gradient(62% 62% at 50% 64%, rgba(2, 6, 23, 0.62), rgba(2, 6, 23, 0) 72%);
-  filter: blur(14px);
-  transform: translateZ(-120px);
+    radial-gradient(62% 62% at 50% 64%, rgba(2, 6, 23, 0.12), rgba(2, 6, 23, 0) 80%); /* Alpha reduzido de 0.26 para 0.12 */
+  filter: blur(6px); /* Blur reduzido de 10px para 6px */
+  transform: translateZ(-90px);
 }
 
 .lp-device__frame {
   position: absolute;
   inset: 0;
-  border-radius: 54px;
+  border-radius: 48px; /* Ajuste proporcional ao tamanho menor */
   background: linear-gradient(180deg, #070a14, #020617);
-  padding: 14px;
+  padding: 12px; /* Reduzido de 14px */
   box-shadow:
-    0 60px 140px rgba(2,6,23,0.50),
-    0 18px 56px rgba(2,6,23,0.30);
+    0 30px 60px rgba(2,6,23,0.18),  /* Sombra reduzida de 0.50 para 0.18 */
+    0 10px 30px rgba(2,6,23,0.12);  /* Sombra secundária reduzida */
 
   /* main face sits forward */
   transform: translateZ(28px);
@@ -354,7 +362,7 @@
   background:
     linear-gradient(90deg,
       rgba(255,255,255,0.12),
-      rgba(16,185,129,0.08) 14%,
+  rgba(255,255,255,0.07) 14%,
       rgba(255,255,255,0.03) 28%,
       rgba(0,0,0,0.52) 62%,
       rgba(255,255,255,0.10)),
@@ -414,8 +422,8 @@
   inset: -18px;
   border-radius: 60px;
   background:
-    radial-gradient(260px 260px at 22% 22%, rgba(16,185,129,0.22), rgba(16,185,129,0) 60%),
-    radial-gradient(260px 260px at 80% 65%, rgba(4,120,87,0.12), rgba(4,120,87,0) 60%);
+  radial-gradient(260px 260px at 22% 22%, rgba(255,255,255,0.10), rgba(255,255,255,0) 60%),
+  radial-gradient(260px 260px at 80% 65%, rgba(255,255,255,0.06), rgba(255,255,255,0) 60%);
   filter: blur(3px);
   z-index: -1;
   transform: translateZ(-22px);
@@ -537,7 +545,7 @@
   height: 24px;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 30% 30%, rgba(16,185,129,0.42), rgba(255,255,255,0.04) 45%, rgba(0,0,0,0.26) 100%),
+  radial-gradient(circle at 30% 30%, rgba(148,163,184,0.28), rgba(255,255,255,0.04) 45%, rgba(0,0,0,0.26) 100%),
     linear-gradient(180deg, rgba(4, 6, 14, 0.98), rgba(4, 6, 14, 0.86));
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,0.10),
@@ -559,7 +567,7 @@
   position: absolute;
   inset: 7px;
   border-radius: 999px;
-  background: radial-gradient(circle at 35% 35%, rgba(16,185,129,0.55), rgba(255,255,255,0.05) 45%, rgba(0,0,0,0.35) 100%);
+  background: radial-gradient(circle at 35% 35%, rgba(148,163,184,0.26), rgba(255,255,255,0.05) 45%, rgba(0,0,0,0.35) 100%);
   box-shadow:
     0 0 0 2px rgba(255,255,255,0.06),
     inset 0 0 0 1px rgba(0,0,0,0.45);

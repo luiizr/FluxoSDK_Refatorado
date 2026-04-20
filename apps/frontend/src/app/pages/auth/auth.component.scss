@@ -65,16 +65,16 @@ body {
   margin-bottom: 60px;
 }
 
-.brand-content .arrow-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, var(--fx-primary), var(--fx-primary-dark));
-  border-radius: 10px;
-  color: white;
-  font-size: 16px;
+.brand-content .brand-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: scale(1.7);
+  transform-origin: left center;
+  display: block;
 }
 
 .brand-content h1 {
