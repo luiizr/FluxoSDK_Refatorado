@@ -6,11 +6,11 @@ import { Injectable } from '@angular/core';
 export class AuthService {
   private readonly backendUrl = 'http://localhost:3000';
 
-  async register(email: string, pass: string) {
+  async register(email: string, pass: string, name?: string) {
     const response = await fetch(`${this.backendUrl}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass }),
+      body: JSON.stringify({ email, password: pass, name }),
     });
     const data = await response.json();
     if (!data.ok) throw new Error(data.message);

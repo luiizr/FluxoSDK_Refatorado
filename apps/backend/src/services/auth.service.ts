@@ -1,17 +1,17 @@
 import { pg } from '../main';
 
 export class AuthService {
-  async register(email: string, pass: string) {
+  async register(email: string, pass: string, name?: string) {
     if (!email) throw new Error('E-mail é obrigatório');
     if (!pass) throw new Error('Senha é obrigatória');
 
     const result = await pg.query(
       `
-        INSERT INTO users (email, password_hash)
-        VALUES ($1, crypt($2, gen_salt('bf')))
-        RETURNING id, email, created_at
+        INSERT INTO users (email, password_hash, name)
+        VALUES ($1, crypt($2, gen_salt('bf')), $3)
+        RETURNING id, name, email, is_root, profile_picture_url, is_first_login, is_active, created_at, updated_at
       `,
-      [email, pass]
+      [email, pass, name || null]
     );
     return result.rows[0];
   }
@@ -19,19 +19,38 @@ export class AuthService {
   async login(email: string, pass: string) {
     if (!email || !pass) throw new Error('E-mail e senha são obrigatórios');
 
-    const result = await pg.query(
+    // Autenticar e retornar dados do usuário
+    const authQuery = await pg.query(
       `
-        SELECT id, email, created_at 
+        SELECT 
+          id, name, email, is_root, profile_picture_url, is_first_login, is_active, created_at, updated_at,
+          (password_hash = crypt($2, password_hash)) AS is_valid_password
         FROM users 
-        WHERE email = $1 AND password_hash = crypt($2, password_hash)
+        WHERE email = $1
       `,
       [email, pass]
     );
 
-    if (result.rows.length === 0) {
-      throw new Error('E-mail ou senha inválidos');
+    if (authQuery.rows.length === 0) {
+      throw new Error('E-mail não cadastrado');
     }
 
-    return result.rows[0];
+    const user = authQuery.rows[0];
+
+    if (!user.is_valid_password) {
+      throw new Error('Senha incorreta');
+    }
+
+    if (!user.is_active) {
+      throw new Error('Usuário está inativo ou bloqueado');
+    }
+
+    // Atualizar last_login_at
+    await pg.query(
+      `UPDATE users SET last_login_at = NOW() WHERE id = $1`,
+      [user.id]
+    );
+
+    return user;
   }
 }

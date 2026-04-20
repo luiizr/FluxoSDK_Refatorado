@@ -1,5 +1,6 @@
 import express from 'express';
 import * as path from 'path';
+import * as fs from 'fs';
 import { Client } from 'pg';
 import { routes } from './routes';
 
@@ -56,6 +57,37 @@ export async function connectPostgres() {
     await pg.connect();
     pgConnected = true;
     console.log('Postgres: conectado');
+
+    // Executa o schema de usuários ao inicializar
+    try {
+      const sql = `
+        CREATE TABLE IF NOT EXISTS users (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          is_root BOOLEAN DEFAULT FALSE,
+          profile_picture_url TEXT,
+          is_first_login BOOLEAN DEFAULT TRUE,
+          is_active BOOLEAN DEFAULT TRUE,
+          last_login_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_root BOOLEAN DEFAULT FALSE;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_first_login BOOLEAN DEFAULT TRUE;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+      `;
+      await pg.query(sql);
+      console.log('Postgres: schema de usuários atualizado com sucesso.');
+    } catch (schemaErr) {
+      console.error('Postgres: aviso ao rodar alteração no banco', schemaErr);
+    }
   } catch (err) {
     pgConnected = false;
     console.error('Postgres: erro ao conectar', err);

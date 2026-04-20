@@ -67,10 +67,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   extractUserInfo() {
     try {
       const email = localStorage.getItem('fluxosdk_user_email');
-      const name = localStorage.getItem('fluxosdk_user_name') || 'Admin';
+      const name = localStorage.getItem('fluxosdk_user_name');
       this.currentUser = {
-        name: name,
-        email: email || 'admin@fluxosdk.com',
+        name: name || 'Usuário',
+        email: email || 'usuario@fluxosdk.com',
       };
     } catch {
       // Ignorar erros se localstorage não estiver disponível
