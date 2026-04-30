@@ -1,7 +1,8 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Chart, type ChartConfiguration, registerables } from 'chart.js';
 import { AdminService, type AdminOverview } from '../../services/admin.service';
 import {
   SdkEventsService,
@@ -28,6 +29,8 @@ const EMPTY_SUMMARY: SummaryStats = {
   formConversionRate: 0,
 };
 
+Chart.register(...registerables);
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -35,7 +38,7 @@ const EMPTY_SUMMARY: SummaryStats = {
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
-export class DashboardComponent implements OnInit, OnDestroy {
+export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly sdkEventsService = inject(SdkEventsService);
   private readonly sitesService = inject(SitesService);
   private readonly adminService = inject(AdminService);
@@ -63,16 +66,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
   protected liveEvents = signal<LiveEvent[]>([]);
   protected stats = signal<DashboardStats | null>(null);
   protected adminOverview = signal<AdminOverview | null>(null);
+  @ViewChild('pagesChart') private pagesChartRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('sourcesChart') private sourcesChartRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('devicesChart') private devicesChartRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('vitalsChart') private vitalsChartRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('funnelChart') private funnelChartRef?: ElementRef<HTMLCanvasElement>;
+  private charts: Chart[] = [];
 
   async ngOnInit() {
     this.extractUserInfo();
     await this.loadInitialData();
   }
 
+  ngAfterViewInit() {
+    this.renderCharts();
+  }
+
   ngOnDestroy() {
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
     }
+    this.destroyCharts();
   }
 
   protected summary(): SummaryStats {
@@ -162,6 +176,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   protected formatPercent(value: number) {
     return `${Math.round(value || 0)}%`;
+  }
+
+  protected formatDecimal(value: number, digits = 2) {
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    }).format(value || 0);
+  }
+
+  protected topItems<T>(items: T[] | null | undefined, limit = 5): T[] {
+    return (items ?? []).slice(0, limit);
+  }
+
+  protected percentOf(total: number, max: number) {
+    if (!max) return 0;
+    return Math.max(6, Math.round((total / max) * 100));
   }
 
   protected vitalValue(name: string) {
@@ -283,11 +313,117 @@ export class DashboardComponent implements OnInit, OnDestroy {
       ]);
       this.liveEvents.set(events);
       this.stats.set(stats);
+      this.renderCharts();
     } catch (error) {
       this.dashboardError.set(this.getErrorMessage(error));
     } finally {
       this.isLoadingMetrics.set(false);
     }
+  }
+
+  private renderCharts() {
+    const stats = this.stats();
+    if (!stats) return;
+
+    this.destroyCharts();
+
+    const pagesCanvas = this.pagesChartRef?.nativeElement;
+    const sourcesCanvas = this.sourcesChartRef?.nativeElement;
+    const devicesCanvas = this.devicesChartRef?.nativeElement;
+    const vitalsCanvas = this.vitalsChartRef?.nativeElement;
+    const funnelCanvas = this.funnelChartRef?.nativeElement;
+
+    if (pagesCanvas) {
+      this.charts.push(
+        new Chart(
+          pagesCanvas,
+          this.buildChartConfig('bar', stats.topPages.map((item) => item.path), [
+            { label: 'Page views', data: stats.topPages.map((item) => item.views), backgroundColor: '#10b981' },
+          ]),
+        ),
+      );
+    }
+
+    if (sourcesCanvas) {
+      this.charts.push(
+        new Chart(
+          sourcesCanvas,
+          this.buildChartConfig('doughnut', stats.trafficSources.map((item) => item.source), [
+            { label: 'Visitantes', data: stats.trafficSources.map((item) => item.visitors) },
+          ]),
+        ),
+      );
+    }
+
+    if (devicesCanvas) {
+      this.charts.push(
+        new Chart(
+          devicesCanvas,
+          this.buildChartConfig('pie', stats.devices.map((item) => item.deviceType), [
+            { label: 'Dispositivos', data: stats.devices.map((item) => item.visitors) },
+          ]),
+        ),
+      );
+    }
+
+    if (vitalsCanvas) {
+      const vitals = ['lcp', 'inp', 'cls', 'fcp'];
+      this.charts.push(
+        new Chart(
+          vitalsCanvas,
+          this.buildChartConfig('radar', vitals.map((name) => name.toUpperCase()), [
+            {
+              label: 'Web Vitals',
+              data: vitals.map((name) => stats.webVitals[name]?.value ?? 0),
+              borderColor: '#2563eb',
+              backgroundColor: 'rgba(37,99,235,0.2)',
+            },
+          ]),
+        ),
+      );
+    }
+
+    if (funnelCanvas) {
+      const primaryFunnel = stats.funnelMetrics[0];
+      if (primaryFunnel?.steps?.length) {
+        this.charts.push(
+          new Chart(
+            funnelCanvas,
+            this.buildChartConfig('line', primaryFunnel.steps.map((step) => step.name), [
+              {
+                label: `Funil: ${primaryFunnel.name}`,
+                data: primaryFunnel.steps.map((step) => step.sessions),
+                borderColor: '#7c3aed',
+                backgroundColor: 'rgba(124,58,237,0.2)',
+              },
+            ]),
+          ),
+        );
+      }
+    }
+  }
+
+  private buildChartConfig(
+    type: ChartConfiguration['type'],
+    labels: string[],
+    datasets: ChartConfiguration['data']['datasets'],
+  ): ChartConfiguration {
+    return {
+      type,
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'bottom' },
+        },
+      },
+    };
+  }
+
+  private destroyCharts() {
+    this.charts.forEach((chart) => chart.destroy());
+    this.charts = [];
   }
 
   private async loadAdminOverview() {

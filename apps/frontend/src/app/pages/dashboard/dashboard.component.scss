@@ -1112,6 +1112,80 @@ details.metadata-dropdown pre {
   text-align: right;
 }
 
+.compact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.compact-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fafafa;
+}
+
+.compact-main strong,
+.compact-main span,
+.compact-main small {
+  display: block;
+}
+
+.compact-main strong {
+  color: #111827;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.compact-main span {
+  color: #4b5563;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.compact-main small {
+  color: #9ca3af;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.compact-side {
+  text-align: right;
+  align-self: start;
+}
+
+.compact-side strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.compact-bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.compact-bar-fill {
+  height: 100%;
+  background: #10b981;
+}
+
+.compact-bar-fill.warning {
+  background: #f59e0b;
+}
+
+.compact-bar-fill.danger {
+  background: #ef4444;
+}
+
 .empty-inline {
   margin: 0;
   color: #6b7280;

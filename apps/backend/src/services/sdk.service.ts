@@ -151,18 +151,43 @@ export class SdkService {
     await this.assertSiteAccess(siteKey, scope.userId);
 
     const rangeHours = normalizeRangeHours(scope.rangeHours);
-    const [summary, topPages, topClicks, problemInteractions, formMetrics, errors, webVitals, devices, sources] =
-      await Promise.all([
-        this.getSummary(siteKey, rangeHours),
-        this.getTopPages(siteKey, rangeHours),
-        this.getTopClicks(siteKey, rangeHours),
-        this.getProblemInteractions(siteKey, rangeHours),
-        this.getFormMetrics(siteKey, rangeHours),
-        this.getErrors(siteKey, rangeHours),
-        this.getWebVitals(siteKey, rangeHours),
-        this.getDevices(siteKey, rangeHours),
-        this.getTrafficSources(siteKey, rangeHours),
-      ]);
+    const [
+      summary,
+      topPages,
+      topClicks,
+      problemInteractions,
+      formMetrics,
+      errors,
+      webVitals,
+      devices,
+      sources,
+      sessionMetrics,
+      navigationMetrics,
+      engagementMetrics,
+      funnelMetrics,
+      flowMetrics,
+      performanceMetrics,
+      contextMetrics,
+      customEvents,
+    ] = await Promise.all([
+      this.getSummary(siteKey, rangeHours),
+      this.getTopPages(siteKey, rangeHours),
+      this.getTopClicks(siteKey, rangeHours),
+      this.getProblemInteractions(siteKey, rangeHours),
+      this.getFormMetrics(siteKey, rangeHours),
+      this.getErrors(siteKey, rangeHours),
+      this.getWebVitals(siteKey, rangeHours),
+      this.getDevices(siteKey, rangeHours),
+      this.getTrafficSources(siteKey, rangeHours),
+      this.getSessionMetrics(siteKey, rangeHours),
+      this.getNavigationMetrics(siteKey, rangeHours),
+      this.getEngagementMetrics(siteKey, rangeHours),
+      this.getFunnelMetrics(siteKey, rangeHours),
+      this.getFlowMetrics(siteKey, rangeHours),
+      this.getPerformanceMetrics(siteKey, rangeHours),
+      this.getContextMetrics(siteKey, rangeHours),
+      this.getCustomEvents(siteKey, rangeHours),
+    ]);
 
     return {
       rangeHours,
@@ -175,6 +200,14 @@ export class SdkService {
       webVitals,
       devices,
       trafficSources: sources,
+      sessionMetrics,
+      navigationMetrics,
+      engagementMetrics,
+      funnelMetrics,
+      flowMetrics,
+      performanceMetrics,
+      contextMetrics,
+      customEvents,
     };
   }
 
@@ -538,11 +571,13 @@ export class SdkService {
           COALESCE(metadata->>'formId', metadata->>'id', metadata->>'selector', 'form') as form_id,
           COUNT(*) FILTER (WHERE event_type = 'form_start')::int as starts,
           COUNT(*) FILTER (WHERE event_type = 'form_submit')::int as submits,
-          COUNT(*) FILTER (WHERE event_type = 'form_abandon')::int as abandons
+          COUNT(*) FILTER (WHERE event_type = 'form_abandon')::int as abandons,
+          COUNT(*) FILTER (WHERE event_type = 'field_error')::int as field_errors,
+          ROUND(AVG((metadata->>'fillTimeMs')::numeric) FILTER (WHERE event_type = 'form_submit'), 2)::float as avg_fill_time_ms
         FROM sdk_events
         WHERE site_key = $1
           AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
-          AND event_type IN ('form_start', 'form_submit', 'form_abandon')
+          AND event_type IN ('form_start', 'form_submit', 'form_abandon', 'field_error')
         GROUP BY path, form_id
         ORDER BY starts DESC, abandons DESC
         LIMIT 10
@@ -559,6 +594,8 @@ export class SdkService {
         starts,
         submits,
         abandons: asInt(row.abandons),
+        fieldErrors: asInt(row.field_errors),
+        avgFillTimeMs: asNumber(row.avg_fill_time_ms),
         conversionRate: starts > 0 ? Math.round((submits / starts) * 100) : 0,
       };
     });
@@ -662,6 +699,409 @@ export class SdkService {
       source: row.source,
       visitors: asInt(row.visitors),
       pageViews: asInt(row.page_views),
+    }));
+  }
+
+  private async getSessionMetrics(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        WITH sessions AS (
+          SELECT
+            session_id,
+            COALESCE(visitor_id, session_id) as visitor_key,
+            MIN(occurred_at) as first_seen,
+            MAX(occurred_at) as last_seen,
+            COUNT(*)::int as events_per_session,
+            COUNT(*) FILTER (WHERE event_type IN ('page_view', 'route_change'))::int as pages_per_session
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          GROUP BY session_id, visitor_key
+        ),
+        visitors AS (
+          SELECT visitor_key, COUNT(*)::int as sessions_count, MIN(first_seen) as first_seen
+          FROM sessions
+          GROUP BY visitor_key
+        )
+        SELECT
+          COUNT(*)::int as sessions,
+          COUNT(DISTINCT sessions.visitor_key)::int as unique_visitors,
+          COUNT(*) FILTER (WHERE visitors.sessions_count = 1)::int as new_visitors,
+          COUNT(*) FILTER (WHERE visitors.sessions_count > 1)::int as returning_visitors,
+          COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (sessions.last_seen - sessions.first_seen)))), 0)::int as avg_session_duration_seconds,
+          COALESCE(ROUND(AVG(sessions.pages_per_session::numeric), 2), 0)::float as pages_per_session,
+          COALESCE(ROUND(AVG(sessions.events_per_session::numeric), 2), 0)::float as events_per_session
+        FROM sessions
+        LEFT JOIN visitors ON visitors.visitor_key = sessions.visitor_key
+      `,
+      [siteKey, rangeHours],
+    );
+
+    const row = result.rows[0] ?? {};
+    return {
+      sessions: asInt(row.sessions),
+      uniqueVisitors: asInt(row.unique_visitors),
+      newVisitors: asInt(row.new_visitors),
+      returningVisitors: asInt(row.returning_visitors),
+      avgSessionDurationSeconds: asInt(row.avg_session_duration_seconds),
+      pagesPerSession: asNumber(row.pages_per_session),
+      eventsPerSession: asNumber(row.events_per_session),
+    };
+  }
+
+  private async getNavigationMetrics(siteKey: string, rangeHours: number) {
+    const [entryPages, exitPages, topExitRates, commonRoutes] = await Promise.all([
+      pg.query(
+        `
+          WITH ranked AS (
+            SELECT
+              session_id,
+              path,
+              ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY entered_at ASC) as rn
+            FROM page_visits
+            WHERE site_key = $1
+              AND entered_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          )
+          SELECT path, COUNT(*)::int as total
+          FROM ranked
+          WHERE rn = 1
+          GROUP BY path
+          ORDER BY total DESC
+          LIMIT 10
+        `,
+        [siteKey, rangeHours],
+      ),
+      pg.query(
+        `
+          WITH ranked AS (
+            SELECT
+              session_id,
+              path,
+              ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY entered_at DESC) as rn
+            FROM page_visits
+            WHERE site_key = $1
+              AND entered_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          )
+          SELECT path, COUNT(*)::int as total
+          FROM ranked
+          WHERE rn = 1
+          GROUP BY path
+          ORDER BY total DESC
+          LIMIT 10
+        `,
+        [siteKey, rangeHours],
+      ),
+      pg.query(
+        `
+          WITH sessions_by_path AS (
+            SELECT path, COUNT(DISTINCT session_id)::int as sessions
+            FROM page_visits
+            WHERE site_key = $1
+              AND entered_at >= NOW() - ($2::int * INTERVAL '1 hour')
+            GROUP BY path
+          ),
+          exits_by_path AS (
+            SELECT path, COUNT(*)::int as exits
+            FROM (
+              SELECT session_id, path, ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY entered_at DESC) as rn
+              FROM page_visits
+              WHERE site_key = $1
+                AND entered_at >= NOW() - ($2::int * INTERVAL '1 hour')
+            ) x
+            WHERE rn = 1
+            GROUP BY path
+          )
+          SELECT
+            s.path,
+            s.sessions,
+            COALESCE(e.exits, 0)::int as exits,
+            CASE WHEN s.sessions > 0 THEN ROUND((COALESCE(e.exits, 0)::numeric / s.sessions) * 100, 2) ELSE 0 END::float as exit_rate
+          FROM sessions_by_path s
+          LEFT JOIN exits_by_path e ON e.path = s.path
+          ORDER BY exit_rate DESC, exits DESC
+          LIMIT 10
+        `,
+        [siteKey, rangeHours],
+      ),
+      pg.query(
+        `
+          WITH ordered AS (
+            SELECT
+              session_id,
+              path,
+              LEAD(path) OVER (PARTITION BY session_id ORDER BY entered_at ASC) as next_path
+            FROM page_visits
+            WHERE site_key = $1
+              AND entered_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          )
+          SELECT path as from_path, next_path as to_path, COUNT(*)::int as total
+          FROM ordered
+          WHERE next_path IS NOT NULL
+          GROUP BY from_path, to_path
+          ORDER BY total DESC
+          LIMIT 10
+        `,
+        [siteKey, rangeHours],
+      ),
+    ]);
+
+    return {
+      entryPages: entryPages.rows.map((row) => ({ path: row.path, total: asInt(row.total) })),
+      exitPages: exitPages.rows.map((row) => ({ path: row.path, total: asInt(row.total) })),
+      topExitRates: topExitRates.rows.map((row) => ({
+        path: row.path,
+        sessions: asInt(row.sessions),
+        exits: asInt(row.exits),
+        exitRate: asNumber(row.exit_rate),
+      })),
+      commonRoutes: commonRoutes.rows.map((row) => ({
+        from: row.from_path,
+        to: row.to_path,
+        total: asInt(row.total),
+      })),
+    };
+  }
+
+  private async getEngagementMetrics(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        WITH sessions AS (
+          SELECT
+            session_id,
+            COALESCE(visitor_id, session_id) as visitor_key,
+            COUNT(*)::int as events_per_session,
+            COUNT(*) FILTER (WHERE event_type = 'click')::int as clicks_per_session,
+            MAX(COALESCE((metadata->>'maxScrollDepth')::int, (metadata->>'depth')::int, 0))::int as max_scroll
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          GROUP BY session_id, visitor_key
+        )
+        SELECT
+          COALESCE(ROUND(AVG(clicks_per_session::numeric), 2), 0)::float as clicks_per_session,
+          COALESCE(ROUND(AVG(events_per_session::numeric), 2), 0)::float as events_per_session,
+          COALESCE(ROUND(AVG(max_scroll::numeric), 2), 0)::float as avg_scroll_depth,
+          COUNT(DISTINCT visitor_key) FILTER (
+            WHERE events_per_session >= 3 OR clicks_per_session >= 2 OR max_scroll >= 50
+          )::int as engaged_users
+        FROM sessions
+      `,
+      [siteKey, rangeHours],
+    );
+
+    const row = result.rows[0] ?? {};
+    return {
+      clicksPerSession: asNumber(row.clicks_per_session),
+      eventsPerSession: asNumber(row.events_per_session),
+      avgScrollDepth: asNumber(row.avg_scroll_depth),
+      engagedUsers: asInt(row.engaged_users),
+    };
+  }
+
+  private async getFunnelMetrics(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        WITH funnel_events AS (
+          SELECT
+            session_id,
+            COALESCE(NULLIF(metadata->>'funnel', ''), 'default') as funnel_name,
+            COALESCE(NULLIF(metadata->>'step', ''), COALESCE(NULLIF(event_name, ''), event_type)) as step_name,
+            MIN(occurred_at) as first_at
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+            AND (
+              event_type IN ('form_start', 'form_submit', 'form_abandon', 'custom')
+              OR metadata ? 'funnel'
+            )
+          GROUP BY session_id, funnel_name, step_name
+        )
+        SELECT funnel_name, step_name, COUNT(DISTINCT session_id)::int as sessions, MIN(first_at) as first_seen
+        FROM funnel_events
+        GROUP BY funnel_name, step_name
+        ORDER BY funnel_name, first_seen ASC
+      `,
+      [siteKey, rangeHours],
+    );
+
+    const groups = new Map<string, Array<{ name: string; sessions: number }>>();
+    result.rows.forEach((row) => {
+      const list = groups.get(row.funnel_name) ?? [];
+      list.push({ name: row.step_name, sessions: asInt(row.sessions) });
+      groups.set(row.funnel_name, list);
+    });
+
+    return Array.from(groups.entries()).map(([name, steps]) => {
+      const starts = steps[0]?.sessions ?? 0;
+      const conversions = steps[steps.length - 1]?.sessions ?? 0;
+      return {
+        name,
+        starts,
+        conversions,
+        conversionRate: starts > 0 ? Math.round((conversions / starts) * 100) : 0,
+        steps: steps.map((step, index) => ({
+          order: index + 1,
+          name: step.name,
+          sessions: step.sessions,
+          dropOff: index > 0 ? Math.max((steps[index - 1]?.sessions ?? 0) - step.sessions, 0) : 0,
+        })),
+      };
+    });
+  }
+
+  private async getFlowMetrics(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        WITH ordered AS (
+          SELECT
+            session_id,
+            path,
+            LEAD(path) OVER (PARTITION BY session_id ORDER BY entered_at ASC) as next_path
+          FROM page_visits
+          WHERE site_key = $1
+            AND entered_at >= NOW() - ($2::int * INTERVAL '1 hour')
+        )
+        SELECT path as from_path, next_path as to_path, COUNT(*)::int as total
+        FROM ordered
+        WHERE next_path IS NOT NULL
+        GROUP BY from_path, to_path
+        ORDER BY total DESC
+        LIMIT 20
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.map((row) => ({
+      from: row.from_path,
+      to: row.to_path,
+      total: asInt(row.total),
+    }));
+  }
+
+  private async getPerformanceMetrics(siteKey: string, rangeHours: number) {
+    const base = await pg.query(
+      `
+        SELECT
+          ROUND(AVG((metadata->>'ttfb')::numeric), 2)::float as ttfb,
+          ROUND(AVG((metadata->>'load')::numeric), 2)::float as load,
+          ROUND(AVG((metadata->>'domContentLoaded')::numeric), 2)::float as dom_content_loaded
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          AND event_type = 'performance'
+      `,
+      [siteKey, rangeHours],
+    );
+
+    const slowPages = await pg.query(
+      `
+        SELECT path, ROUND(AVG((metadata->>'load')::numeric), 2)::float as avg_load, COUNT(*)::int as samples
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          AND event_type = 'performance'
+          AND metadata ? 'load'
+        GROUP BY path
+        ORDER BY avg_load DESC
+        LIMIT 8
+      `,
+      [siteKey, rangeHours],
+    );
+
+    const row = base.rows[0] ?? {};
+    return {
+      ttfb: asNumber(row.ttfb),
+      load: asNumber(row.load),
+      domContentLoaded: asNumber(row.dom_content_loaded),
+      slowPages: slowPages.rows.map((item) => ({
+        path: item.path,
+        avgLoad: asNumber(item.avg_load),
+        samples: asInt(item.samples),
+      })),
+    };
+  }
+
+  private async getContextMetrics(siteKey: string, rangeHours: number) {
+    const [browsers, os, languages, timezones] = await Promise.all([
+      pg.query(
+        `
+          SELECT COALESCE(context->>'browser', 'unknown') as label, COUNT(*)::int as total
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          GROUP BY label
+          ORDER BY total DESC
+          LIMIT 8
+        `,
+        [siteKey, rangeHours],
+      ),
+      pg.query(
+        `
+          SELECT COALESCE(context->>'os', 'unknown') as label, COUNT(*)::int as total
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          GROUP BY label
+          ORDER BY total DESC
+          LIMIT 8
+        `,
+        [siteKey, rangeHours],
+      ),
+      pg.query(
+        `
+          SELECT COALESCE(context->>'language', 'unknown') as label, COUNT(*)::int as total
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          GROUP BY label
+          ORDER BY total DESC
+          LIMIT 8
+        `,
+        [siteKey, rangeHours],
+      ),
+      pg.query(
+        `
+          SELECT COALESCE(context->>'timezone', 'unknown') as label, COUNT(*)::int as total
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          GROUP BY label
+          ORDER BY total DESC
+          LIMIT 8
+        `,
+        [siteKey, rangeHours],
+      ),
+    ]);
+
+    const mapRows = (rows: Array<{ label: string; total: unknown }>) =>
+      rows.map((row) => ({ label: row.label, total: asInt(row.total) }));
+
+    return {
+      browsers: mapRows(browsers.rows),
+      os: mapRows(os.rows),
+      languages: mapRows(languages.rows),
+      timezones: mapRows(timezones.rows),
+    };
+  }
+
+  private async getCustomEvents(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        SELECT COALESCE(NULLIF(event_name, ''), 'custom_event') as event_name, COUNT(*)::int as total
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          AND event_type = 'custom'
+        GROUP BY event_name
+        ORDER BY total DESC
+        LIMIT 20
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.map((row) => ({
+      name: row.event_name,
+      total: asInt(row.total),
     }));
   }
 }

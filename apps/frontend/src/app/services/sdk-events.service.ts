@@ -64,6 +64,8 @@ type FormMetric = {
   starts: number;
   submits: number;
   abandons: number;
+  fieldErrors: number;
+  avgFillTimeMs: number;
   conversionRate: number;
 };
 
@@ -102,6 +104,48 @@ type DashboardStats = {
   webVitals: Record<string, WebVitalMetric>;
   devices: DeviceMetric[];
   trafficSources: TrafficSource[];
+  sessionMetrics: {
+    sessions: number;
+    uniqueVisitors: number;
+    newVisitors: number;
+    returningVisitors: number;
+    avgSessionDurationSeconds: number;
+    pagesPerSession: number;
+    eventsPerSession: number;
+  };
+  navigationMetrics: {
+    entryPages: Array<{ path: string; total: number }>;
+    exitPages: Array<{ path: string; total: number }>;
+    topExitRates: Array<{ path: string; sessions: number; exits: number; exitRate: number }>;
+    commonRoutes: Array<{ from: string; to: string; total: number }>;
+  };
+  engagementMetrics: {
+    clicksPerSession: number;
+    eventsPerSession: number;
+    avgScrollDepth: number;
+    engagedUsers: number;
+  };
+  funnelMetrics: Array<{
+    name: string;
+    starts: number;
+    conversions: number;
+    conversionRate: number;
+    steps: Array<{ order: number; name: string; sessions: number; dropOff: number }>;
+  }>;
+  flowMetrics: Array<{ from: string; to: string; total: number }>;
+  performanceMetrics: {
+    ttfb: number;
+    load: number;
+    domContentLoaded: number;
+    slowPages: Array<{ path: string; avgLoad: number; samples: number }>;
+  };
+  contextMetrics: {
+    browsers: Array<{ label: string; total: number }>;
+    os: Array<{ label: string; total: number }>;
+    languages: Array<{ label: string; total: number }>;
+    timezones: Array<{ label: string; total: number }>;
+  };
+  customEvents: Array<{ name: string; total: number }>;
 };
 
 @Injectable({

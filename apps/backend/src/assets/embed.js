@@ -413,6 +413,7 @@
       page.forms[key] = {
         started: true,
         submitted: false,
+        startedAt: Date.now(),
         metadata: collectFormMetadata(form),
       };
 
@@ -428,10 +429,28 @@
       page.forms[key] = {
         started: true,
         submitted: true,
+        startedAt: page.forms[key] && page.forms[key].startedAt ? page.forms[key].startedAt : Date.now(),
         metadata: metadata,
       };
 
-      queueEvent(buildEvent('form_submit', metadata));
+      queueEvent(buildEvent('form_submit', Object.assign({}, metadata, {
+        fillTimeMs: Math.max(Date.now() - (page.forms[key].startedAt || Date.now()), 0),
+      })));
+    }
+
+    function trackFieldError(event) {
+      var field = event.target;
+      var form = closestElement(field, 'form');
+      if (!form || !field) return;
+
+      var formMetadata = collectFormMetadata(form);
+      queueEvent(buildEvent('field_error', {
+        formId: formMetadata.formId,
+        selector: buildSelector(field),
+        fieldName: sanitizeText(field.name || field.id || '', 48),
+        inputType: sanitizeText(field.type || field.tagName || 'unknown', 24),
+        reason: sanitizeText(field.validationMessage || 'invalid', 120),
+      }));
     }
 
     function trackFormAbandons(pageSnapshot) {
@@ -685,6 +704,7 @@
     document.addEventListener('click', trackClick, true);
     document.addEventListener('focusin', trackFormStart, true);
     document.addEventListener('submit', trackFormSubmit, true);
+    document.addEventListener('invalid', trackFieldError, true);
     window.addEventListener('error', trackRuntimeError, true);
     window.addEventListener('unhandledrejection', trackUnhandledRejection);
     window.addEventListener('beforeunload', function () {

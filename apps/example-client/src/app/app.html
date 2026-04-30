@@ -1,43 +1,25 @@
-<div style="font-family: Arial, sans-serif; max-width: 1000px; margin: 20px auto; border: 1px solid #ddd; border-radius: 8px;">
-  <header style="background-color: #343a40; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
-    <h1 style="margin: 0; font-size: 24px;">Meu Sistema Terceiro</h1>
-    <nav>
-      <a routerLink="/" style="color: #fff; margin-right: 15px; text-decoration: none;">Início</a>
-      <a routerLink="/sobre" style="color: #fff; margin-right: 15px; text-decoration: none;">Sobre</a>
+<div style="font-family: Arial, sans-serif; max-width: 1100px; margin: 20px auto; border: 1px solid #ddd; border-radius: 8px;">
+  <header style="background-color: #1f2937; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+    <h1 style="margin: 0; font-size: 22px;">Example Client - Laboratório de Métricas</h1>
+    <nav style="display: flex; gap: 14px; flex-wrap: wrap;">
+      <a routerLink="/" style="color: #fff; text-decoration: none;">Home</a>
+      <a routerLink="/sobre" style="color: #fff; text-decoration: none;">Sobre</a>
       <a routerLink="/contato" style="color: #fff; text-decoration: none;">Contato</a>
+      <a routerLink="/checkout" style="color: #fff; text-decoration: none;">Checkout</a>
+      <a routerLink="/lab" style="color: #fff; text-decoration: none;">Lab</a>
     </nav>
   </header>
 
   <main style="padding: 20px;">
-    <p>
-      Este é um sistema que possui o script do FluxoSDK embutido no HTML 
-      (<code>index.html</code>). Navegue pelas páginas e interaja com os botões
-      para enviar eventos ao backend.
+    <p style="margin-top: 0;">
+      Esta app foi preparada para validar todas as métricas do FluxoSDK: usuários/sessões, navegação, engajamento, cliques, funis, formulários, erros, performance, origem/contexto e eventos customizados.
     </p>
-
-    <!-- O conteúdo de cada rota entra aqui -->
     <div style="border: 2px dashed #007bff; border-radius: 8px; margin-top: 20px;">
-      <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
-  <h1>Página de Teste - Terceiro Cliente</h1>
-  <p>Esta é uma página de teste isolada para capturar cliques e formulários com a Tag do SDK!</p>
-  
-  <div style="margin: 20px;">
-    <button id="btn-compra" style="background:#10b981; margin:5px;">Simular Compra</button>
-    <button id="btn-add-carrinho" style="background:#3b82f6; margin:5px;">Adicionar ao Carrinho</button>
-  </div>
-
-  <form id="form-cadastro" style="border: 1px solid #ccc; padding: 20px; display: inline-block; text-align: left;">
-    <h3>Formulário Mapeado</h3>
-    <input type="text" name="LeadName" placeholder="Seu nome"><br>
-    <input type="email" name="LeadEmail" placeholder="Seu email"><br>
-    <button id="btn-enviar-lead" type="submit" style="background:#8b5cf6;">Enviar Lead (Submit)</button>
-  </form>
-</div>
-<router-outlet></router-outlet>
+      <router-outlet></router-outlet>
     </div>
   </main>
-  
+
   <footer style="background-color: #f8f9fa; padding: 10px 20px; border-radius: 0 0 8px 8px; text-align: center; border-top: 1px solid #ddd;">
-    <p style="margin: 0; font-size: 14px; color: #6c757d;">© 2026 Exemplo de Integração LTDA</p>
+    <p style="margin: 0; font-size: 14px; color: #6c757d;">Use o dashboard para acompanhar os eventos em tempo real.</p>
   </footer>
 </div>

@@ -181,6 +181,49 @@
       <div class="analytics-layout">
         <section class="card panel">
           <header class="panel-header compact">
+            <h3>Gráfico · Top páginas</h3>
+          </header>
+          <div style="height: 260px;">
+            <canvas #pagesChart></canvas>
+          </div>
+        </section>
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Gráfico · Fontes de tráfego</h3>
+          </header>
+          <div style="height: 260px;">
+            <canvas #sourcesChart></canvas>
+          </div>
+        </section>
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Gráfico · Dispositivos</h3>
+          </header>
+          <div style="height: 260px;">
+            <canvas #devicesChart></canvas>
+          </div>
+        </section>
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Gráfico · Web Vitals</h3>
+          </header>
+          <div style="height: 260px;">
+            <canvas #vitalsChart></canvas>
+          </div>
+        </section>
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Gráfico · Funil principal</h3>
+          </header>
+          <div style="height: 260px;">
+            <canvas #funnelChart></canvas>
+          </div>
+        </section>
+      </div>
+
+      <div class="analytics-layout">
+        <section class="card panel">
+          <header class="panel-header compact">
             <h3>Top páginas</h3>
           </header>
           <div class="metric-list">
@@ -219,7 +262,7 @@
                 </div>
                 <div class="metric-row-value">
                   <strong>{{ formatPercent(form.conversionRate) }}</strong>
-                  <span>{{ form.abandons }} abandonos</span>
+                  <span>{{ form.abandons }} abandonos · {{ form.fieldErrors }} erros · {{ formatDecimal(form.avgFillTimeMs, 0) }}ms</span>
                 </div>
               </div>
             } @empty {
@@ -232,16 +275,22 @@
           <header class="panel-header compact">
             <h3>Interações problemáticas</h3>
           </header>
-          <div class="metric-list">
-            @for (interaction of stats()?.problemInteractions ?? []; track interaction.type + interaction.selector + interaction.path) {
-              <div class="metric-row">
-                <div>
+          <div class="compact-list">
+            @for (interaction of topItems(stats()?.problemInteractions, 6); track interaction.type + interaction.selector + interaction.path) {
+              <div class="compact-row">
+                <div class="compact-main">
                   <strong>{{ eventLabel(interaction.type) }}</strong>
-                  <span>{{ interaction.selector }} · {{ interaction.path }}</span>
+                  <span>{{ interaction.selector }}</span>
+                  <small>{{ interaction.path }}</small>
                 </div>
-                <div class="metric-row-value">
+                <div class="compact-side">
                   <strong>{{ interaction.total }}</strong>
-                  <span>{{ interaction.text || 'sem texto' }}</span>
+                </div>
+                <div class="compact-bar">
+                  <div
+                    class="compact-bar-fill danger"
+                    [style.width.%]="percentOf(interaction.total, (stats()?.problemInteractions ?? [])[0]?.total ?? 0)"
+                  ></div>
                 </div>
               </div>
             } @empty {
@@ -252,18 +301,52 @@
 
         <section class="card panel">
           <header class="panel-header compact">
+            <h3>Top elementos clicados</h3>
+          </header>
+          <div class="compact-list">
+            @for (click of topItems(stats()?.topClicks, 6); track click.selector + click.path) {
+              <div class="compact-row">
+                <div class="compact-main">
+                  <strong>{{ click.selector }}</strong>
+                  <span>{{ click.text || click.tag || 'sem texto' }}</span>
+                  <small>{{ click.path }}</small>
+                </div>
+                <div class="compact-side">
+                  <strong>{{ click.total }}</strong>
+                </div>
+                <div class="compact-bar">
+                  <div
+                    class="compact-bar-fill"
+                    [style.width.%]="percentOf(click.total, (stats()?.topClicks ?? [])[0]?.total ?? 0)"
+                  ></div>
+                </div>
+              </div>
+            } @empty {
+              <p class="empty-inline">Sem cliques capturados.</p>
+            }
+          </div>
+        </section>
+
+        <section class="card panel">
+          <header class="panel-header compact">
             <h3>Erros recentes</h3>
           </header>
-          <div class="metric-list">
-            @for (error of stats()?.errors ?? []; track error.type + error.message + error.path) {
-              <div class="metric-row">
-                <div>
+          <div class="compact-list">
+            @for (error of topItems(stats()?.errors, 6); track error.type + error.message + error.path) {
+              <div class="compact-row">
+                <div class="compact-main">
                   <strong>{{ eventLabel(error.type) }}</strong>
                   <span>{{ error.message }}</span>
+                  <small>{{ error.path }}</small>
                 </div>
-                <div class="metric-row-value">
+                <div class="compact-side">
                   <strong>{{ error.total }}</strong>
-                  <span>{{ error.path }}</span>
+                </div>
+                <div class="compact-bar">
+                  <div
+                    class="compact-bar-fill warning"
+                    [style.width.%]="percentOf(error.total, (stats()?.errors ?? [])[0]?.total ?? 0)"
+                  ></div>
                 </div>
               </div>
             } @empty {
@@ -281,6 +364,29 @@
             <div><span>INP</span><strong>{{ vitalValue('inp') }}</strong></div>
             <div><span>CLS</span><strong>{{ vitalValue('cls') }}</strong></div>
             <div><span>FCP</span><strong>{{ vitalValue('fcp') }}</strong></div>
+          </div>
+          <div class="metric-list">
+            <div class="metric-row">
+              <div><strong>TTFB</strong><span>Tempo até o primeiro byte</span></div>
+              <div class="metric-row-value"><strong>{{ formatDecimal(stats()?.performanceMetrics?.ttfb ?? 0) }}ms</strong></div>
+            </div>
+            <div class="metric-row">
+              <div><strong>DOMContentLoaded</strong><span>Interatividade inicial</span></div>
+              <div class="metric-row-value"><strong>{{ formatDecimal(stats()?.performanceMetrics?.domContentLoaded ?? 0) }}ms</strong></div>
+            </div>
+            <div class="metric-row">
+              <div><strong>Load</strong><span>Carregamento completo</span></div>
+              <div class="metric-row-value"><strong>{{ formatDecimal(stats()?.performanceMetrics?.load ?? 0) }}ms</strong></div>
+            </div>
+            @for (slowPage of stats()?.performanceMetrics?.slowPages ?? []; track slowPage.path) {
+              <div class="metric-row">
+                <div><strong>{{ slowPage.path }}</strong><span>Página mais lenta</span></div>
+                <div class="metric-row-value">
+                  <strong>{{ formatDecimal(slowPage.avgLoad) }}ms</strong>
+                  <span>{{ slowPage.samples }} amostras</span>
+                </div>
+              </div>
+            }
           </div>
         </section>
 
@@ -305,6 +411,152 @@
                 <p class="empty-inline">Sem dispositivo.</p>
               }
             </div>
+          </div>
+        </section>
+
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Usuários e sessões</h3>
+          </header>
+          <div class="metric-list">
+            <div class="metric-row">
+              <div><strong>Novos vs recorrentes</strong><span>Visitantes únicos no período</span></div>
+              <div class="metric-row-value">
+                <strong>{{ stats()?.sessionMetrics?.newVisitors ?? 0 }} / {{ stats()?.sessionMetrics?.returningVisitors ?? 0 }}</strong>
+                <span>novos / recorrentes</span>
+              </div>
+            </div>
+            <div class="metric-row">
+              <div><strong>Páginas e eventos por sessão</strong><span>Qualidade de navegação</span></div>
+              <div class="metric-row-value">
+                <strong>{{ formatDecimal(stats()?.sessionMetrics?.pagesPerSession ?? 0) }} / {{ formatDecimal(stats()?.sessionMetrics?.eventsPerSession ?? 0) }}</strong>
+                <span>páginas / eventos</span>
+              </div>
+            </div>
+            <div class="metric-row">
+              <div><strong>Duração média de sessão</strong><span>Tempo ativo antes de sair</span></div>
+              <div class="metric-row-value">
+                <strong>{{ formatSeconds(stats()?.sessionMetrics?.avgSessionDurationSeconds ?? 0) }}</strong>
+                <span>média</span>
+              </div>
+            </div>
+            <div class="metric-row">
+              <div><strong>Usuários engajados</strong><span>Baseado em eventos, cliques e scroll</span></div>
+              <div class="metric-row-value">
+                <strong>{{ formatNumber(stats()?.engagementMetrics?.engagedUsers ?? 0) }}</strong>
+                <span>{{ formatDecimal(stats()?.engagementMetrics?.avgScrollDepth ?? 0) }}% scroll médio</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Fluxo de navegação</h3>
+          </header>
+          <div class="metric-list">
+            @for (route of stats()?.navigationMetrics?.commonRoutes ?? []; track route.from + route.to) {
+              <div class="metric-row">
+                <div>
+                  <strong>{{ route.from }}</strong>
+                  <span>→ {{ route.to }}</span>
+                </div>
+                <div class="metric-row-value">
+                  <strong>{{ route.total }}</strong>
+                  <span>rotas comuns</span>
+                </div>
+              </div>
+            }
+            @for (flow of stats()?.flowMetrics ?? []; track flow.from + flow.to) {
+              <div class="metric-row">
+                <div>
+                  <strong>{{ flow.from }}</strong>
+                  <span>→ {{ flow.to }}</span>
+                </div>
+                <div class="metric-row-value">
+                  <strong>{{ flow.total }}</strong>
+                  <span>transições</span>
+                </div>
+              </div>
+            } @empty {
+              <p class="empty-inline">Sem fluxo de rotas no período.</p>
+            }
+          </div>
+        </section>
+
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Funis e eventos customizados</h3>
+          </header>
+          <div class="metric-list">
+            @for (funnel of stats()?.funnelMetrics ?? []; track funnel.name) {
+              <div class="metric-row">
+                <div>
+                  <strong>{{ funnel.name }}</strong>
+                  <span>{{ funnel.starts }} inícios · {{ funnel.conversions }} conversões</span>
+                </div>
+                <div class="metric-row-value">
+                  <strong>{{ formatPercent(funnel.conversionRate) }}</strong>
+                  <span>conversão</span>
+                </div>
+              </div>
+              @for (step of funnel.steps; track step.order + step.name) {
+                <div class="metric-row">
+                  <div>
+                    <strong>Etapa {{ step.order }} · {{ step.name }}</strong>
+                    <span>Drop-off: {{ step.dropOff }}</span>
+                  </div>
+                  <div class="metric-row-value">
+                    <strong>{{ step.sessions }}</strong>
+                    <span>sessões</span>
+                  </div>
+                </div>
+              }
+            } @empty {
+              <p class="empty-inline">Nenhum funil detectado.</p>
+            }
+            @for (customEvent of stats()?.customEvents ?? []; track customEvent.name) {
+              <div class="metric-row">
+                <div>
+                  <strong>{{ customEvent.name }}</strong>
+                  <span>evento customizado</span>
+                </div>
+                <div class="metric-row-value">
+                  <strong>{{ customEvent.total }}</strong>
+                  <span>ocorrências</span>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Entradas, saídas e bounce</h3>
+          </header>
+          <div class="metric-list">
+            <div class="metric-row">
+              <div><strong>Taxa de bounce</strong><span>Sessões de uma página</span></div>
+              <div class="metric-row-value"><strong>{{ formatPercent(summary().bounceRate) }}</strong></div>
+            </div>
+            @for (entry of stats()?.navigationMetrics?.entryPages ?? []; track entry.path) {
+              <div class="metric-row">
+                <div><strong>Entrada: {{ entry.path }}</strong><span>Landing page</span></div>
+                <div class="metric-row-value"><strong>{{ entry.total }}</strong><span>sessões</span></div>
+              </div>
+            }
+            @for (exit of stats()?.navigationMetrics?.exitPages ?? []; track exit.path) {
+              <div class="metric-row">
+                <div><strong>Saída: {{ exit.path }}</strong><span>Última página da sessão</span></div>
+                <div class="metric-row-value"><strong>{{ exit.total }}</strong><span>sessões</span></div>
+              </div>
+            }
+            @for (exitRate of stats()?.navigationMetrics?.topExitRates ?? []; track exitRate.path) {
+              <div class="metric-row">
+                <div><strong>{{ exitRate.path }}</strong><span>{{ exitRate.exits }} saídas de {{ exitRate.sessions }} sessões</span></div>
+                <div class="metric-row-value"><strong>{{ formatDecimal(exitRate.exitRate) }}%</strong><span>taxa de saída</span></div>
+              </div>
+            }
           </div>
         </section>
       </div>
@@ -374,6 +626,62 @@
                 <div class="metric-row-value"><strong>{{ source.visitors }}</strong></div>
               </div>
             }
+          </div>
+        </section>
+
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Engajamento</h3>
+          </header>
+          <div class="metric-list">
+            <div class="metric-row">
+              <div><strong>Cliques por sessão</strong><span>Média no período</span></div>
+              <div class="metric-row-value"><strong>{{ formatDecimal(stats()?.engagementMetrics?.clicksPerSession ?? 0) }}</strong></div>
+            </div>
+            <div class="metric-row">
+              <div><strong>Eventos por sessão</strong><span>Média no período</span></div>
+              <div class="metric-row-value"><strong>{{ formatDecimal(stats()?.engagementMetrics?.eventsPerSession ?? 0) }}</strong></div>
+            </div>
+            <div class="metric-row">
+              <div><strong>Usuários engajados</strong><span>Eventos + cliques + scroll</span></div>
+              <div class="metric-row-value"><strong>{{ formatNumber(stats()?.engagementMetrics?.engagedUsers ?? 0) }}</strong></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Contexto técnico</h3>
+          </header>
+          <div class="split-list">
+            <div>
+              <h4>Navegador</h4>
+              @for (item of stats()?.contextMetrics?.browsers ?? []; track item.label) {
+                <div class="mini-row"><span>{{ item.label }}</span><strong>{{ item.total }}</strong></div>
+              } @empty {
+                <p class="empty-inline">Sem dados.</p>
+              }
+              <h4 style="margin-top: 16px;">Sistema operacional</h4>
+              @for (item of stats()?.contextMetrics?.os ?? []; track item.label) {
+                <div class="mini-row"><span>{{ item.label }}</span><strong>{{ item.total }}</strong></div>
+              } @empty {
+                <p class="empty-inline">Sem dados.</p>
+              }
+            </div>
+            <div>
+              <h4>Idioma</h4>
+              @for (item of stats()?.contextMetrics?.languages ?? []; track item.label) {
+                <div class="mini-row"><span>{{ item.label }}</span><strong>{{ item.total }}</strong></div>
+              } @empty {
+                <p class="empty-inline">Sem dados.</p>
+              }
+              <h4 style="margin-top: 16px;">Timezone</h4>
+              @for (item of stats()?.contextMetrics?.timezones ?? []; track item.label) {
+                <div class="mini-row"><span>{{ item.label }}</span><strong>{{ item.total }}</strong></div>
+              } @empty {
+                <p class="empty-inline">Sem dados.</p>
+              }
+            </div>
           </div>
         </section>
       </div>
