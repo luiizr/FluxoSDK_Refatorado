@@ -31,7 +31,8 @@ export class SitesController {
       const sites = await this.sitesService.listSites(userId);
       return response.status(200).json({ ok: true, data: sites });
     } catch (error) {
-      return response.status(400).json({ ok: false, message: 'Erro interno' }); 
+      const message = error instanceof Error ? error.message : 'Erro interno';
+      return response.status(400).json({ ok: false, message });
     }
   };
 
@@ -45,7 +46,8 @@ export class SitesController {
       await this.sitesService.deleteSite(id, userId);
       return response.status(200).json({ ok: true, message: 'Site deletado' });
     } catch (error) {
-      return response.status(400).json({ ok: false, message: 'Erro interno' });
+      const message = error instanceof Error ? error.message : 'Erro interno';
+      return response.status(400).json({ ok: false, message });
     }
   };
 }

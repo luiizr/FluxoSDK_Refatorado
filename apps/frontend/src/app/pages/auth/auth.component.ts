@@ -86,6 +86,7 @@ export class AuthComponent {
       localStorage.setItem('fluxosdk_user_id', user.id);
       localStorage.setItem('fluxosdk_user_name', user.name || '');
       localStorage.setItem('fluxosdk_user_email', user.email);
+      localStorage.setItem('fluxosdk_user_is_root', String(Boolean(user.is_root)));
       // Se tivéssemos foto de perfil, is_root, etc, poderíamos salvar aqui também
 
       // Limpa os campos

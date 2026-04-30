@@ -19,8 +19,8 @@ const app = express();
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');    
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');    
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -29,8 +29,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
-app.use((req, res, next) => {
+app.use(express.json({ limit: '256kb' }));
+app.use((req, _res, next) => {
   console.log(`[BACKEND_TRAFFIC] ${req.method} ${req.url}`);
   next();
 });
@@ -38,6 +38,12 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use('/api', routes);
 
 let pgConnected = false;
+
+async function runApplicationSchema() {
+  const schemaPath = path.join(__dirname, 'database', 'schema.sql');
+  const sql = fs.readFileSync(schemaPath, 'utf8');
+  await pg.query(sql);
+}
 
 export async function connectPostgres() {
   try {
@@ -58,35 +64,11 @@ export async function connectPostgres() {
     pgConnected = true;
     console.log('Postgres: conectado');
 
-    // Executa o schema de usuários ao inicializar
     try {
-      const sql = `
-        CREATE TABLE IF NOT EXISTS users (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          name TEXT,
-          email TEXT NOT NULL UNIQUE,
-          password_hash TEXT NOT NULL,
-          is_root BOOLEAN DEFAULT FALSE,
-          profile_picture_url TEXT,
-          is_first_login BOOLEAN DEFAULT TRUE,
-          is_active BOOLEAN DEFAULT TRUE,
-          last_login_at TIMESTAMPTZ,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT;
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_root BOOLEAN DEFAULT FALSE;
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_first_login BOOLEAN DEFAULT TRUE;
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-      `;
-      await pg.query(sql);
-      console.log('Postgres: schema de usuários atualizado com sucesso.');
+      await runApplicationSchema();
+      console.log('Postgres: schema principal atualizado com sucesso.');
     } catch (schemaErr) {
-      console.error('Postgres: aviso ao rodar alteração no banco', schemaErr);
+      console.error('Postgres: aviso ao rodar schema principal', schemaErr);
     }
   } catch (err) {
     pgConnected = false;
@@ -98,7 +80,6 @@ export function isPostgresConnected() {
   return pgConnected;
 }
 
-// Variáveis do sistema
 const porta_api = process.env.API_PORTA;
 
 async function bootstrap() {
@@ -107,18 +88,16 @@ async function bootstrap() {
   const server = app.listen(porta_api, () => {
     if (isPostgresConnected()) {
       console.log(
-        `Servidor rodando em http://localhost:${porta_api}\n\ncom conexão com o banco de dados (BD_DATABASE=${process.env.BD_DATABASE ?? process.env.BD_NAME})`,
+        `Servidor rodando em http://localhost:${porta_api}\n\ncom conexao com o banco de dados (BD_DATABASE=${process.env.BD_DATABASE ?? process.env.BD_NAME})`,
       );
     } else {
-      console.log(
-        `Servidor rodando em http://localhost:${porta_api}\n\nsem conexão com o banco de dados`,
-      );
+      console.log(`Servidor rodando em http://localhost:${porta_api}\n\nsem conexao com o banco de dados`);
     }
   });
   server.on('error', console.error);
 }
 
 bootstrap().catch((err) => {
-  console.error('Falha ao iniciar aplicação', err);
+  console.error('Falha ao iniciar aplicacao', err);
   process.exitCode = 1;
 });

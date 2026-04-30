@@ -2,6 +2,9 @@ import { Injectable } from '@angular/core';
 
 export type Site = {
   id: string;
+  userId?: string;
+  ownerName?: string;
+  ownerEmail?: string;
   name: string;
   domain: string;
   active: boolean;
@@ -26,6 +29,7 @@ export class SitesService {
       headers: { 'x-user-id': this.userId }
     });
     const json = await response.json();
+    if (!json.ok) throw new Error(json.message || 'Erro ao listar sites');
     return json.data as Site[];
   }
 

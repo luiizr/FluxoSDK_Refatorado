@@ -26,7 +26,10 @@ export class SdkController {
   listRecentEvents = async (request: Request, response: Response) => {
     try {
       const siteKey = request.query.siteKey as string | undefined;
-      const events = await this.sdkService.listRecentEvents(20, siteKey);
+      const userId = request.headers['x-user-id'] as string | undefined;
+      const rawLimit = Number(request.query.limit ?? 30);
+      const limit = Number.isFinite(rawLimit) ? rawLimit : 30;
+      const events = await this.sdkService.listRecentEvents(limit, siteKey, userId);
 
       return response.status(200).json({
         ok: true,
@@ -45,11 +48,18 @@ export class SdkController {
   getStats = async (request: Request, response: Response) => {
     try {
       const siteKey = request.query.siteKey as string;
+      const userId = request.headers['x-user-id'] as string | undefined;
+      const rangeHoursRaw = Number(request.query.rangeHours ?? 24);
+
       if (!siteKey) {
-        return response.status(400).json({ ok: false, message: 'siteKey é obrigatório' });
+        return response.status(400).json({ ok: false, message: 'siteKey e obrigatorio' });
       }
 
-      const stats = await this.sdkService.getStats(siteKey);
+      const stats = await this.sdkService.getStats({
+        siteKey,
+        userId,
+        rangeHours: Number.isFinite(rangeHoursRaw) ? rangeHoursRaw : 24,
+      });
 
       return response.status(200).json({
         ok: true,

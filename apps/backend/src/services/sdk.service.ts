@@ -1,149 +1,667 @@
 import { pg } from '../main';
+import type { ReceiveSdkEventsPayload, SdkEvent } from '../entities/sdk.entities';
 
-type SdkEvent = {
-  eventId?: string;
-  type?: string;
-  pageId?: string;
-  url?: string;
-  path?: string;
-  title?: string;
-  occurredAt?: string;
-  metadata?: Record<string, unknown>;
+type DashboardScope = {
+  siteKey: string;
+  userId?: string;
+  rangeHours?: number;
 };
 
-type ReceiveSdkEventsInput = {
-  siteKey?: string;
-  sessionId?: string;
-  sentAt?: string;
-  events?: SdkEvent[];
-};
+const MAX_EVENTS_PER_REQUEST = 100;
+const DEFAULT_RANGE_HOURS = 24;
+
+function asNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function asInt(value: unknown, fallback = 0) {
+  return Math.round(asNumber(value, fallback));
+}
+
+function safeJson(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function normalizeRangeHours(value?: number) {
+  if (!value || !Number.isFinite(value)) return DEFAULT_RANGE_HOURS;
+  return Math.min(Math.max(Math.round(value), 1), 24 * 90);
+}
 
 export class SdkService {
-  async receiveEvents(input: ReceiveSdkEventsInput) {
+  async receiveEvents(input: ReceiveSdkEventsPayload) {
     const { siteKey, sessionId, sentAt, events } = input;
 
-    console.log(`[SDK_LOG] Recebendo ${events?.length} eventos. Session: ${sessionId}`);
-
-    if (!siteKey) throw new Error('siteKey é obrigatório');
-
-    // Validar se a chave existe e se está ativa
-    const keyResult = await pg.query(
-      `SELECT active FROM site_keys WHERE public_key = $1`,
-      [siteKey]
-    );
-
-    if (keyResult.rowCount === 0) {
-      throw new Error('siteKey inválido ou inexistente');
-    }
-
-    if (!keyResult.rows[0].active) {
-      throw new Error('siteKey está desativado');
-    }
-
-    if (!sessionId) throw new Error('sessionId é obrigatório');
+    if (!siteKey) throw new Error('siteKey e obrigatorio');
+    if (!sessionId) throw new Error('sessionId e obrigatorio');
     if (!Array.isArray(events) || events.length === 0) {
       throw new Error('events deve ser um array com pelo menos um item');
     }
 
-    await this.upsertSessionWithEvents(siteKey, sessionId, events);
+    const acceptedEvents = events.slice(0, MAX_EVENTS_PER_REQUEST);
+    const keyResult = await pg.query(
+      `
+        SELECT k.active, k.site_id, s.active as site_active
+        FROM site_keys k
+        JOIN sites s ON s.id = k.site_id
+        WHERE k.public_key = $1
+      `,
+      [siteKey],
+    );
+
+    if (keyResult.rowCount === 0) {
+      throw new Error('siteKey invalido ou inexistente');
+    }
+
+    if (!keyResult.rows[0].active || !keyResult.rows[0].site_active) {
+      throw new Error('siteKey ou site esta desativado');
+    }
+
+    const payloadContext = safeJson(input.context);
+    const visitorId = input.visitorId || null;
+    const userIdentifier = input.userIdentifier || null;
+
+    acceptedEvents.forEach((event) => this.validateEvent(event));
+
+    await pg.query('BEGIN');
+    try {
+      await this.upsertSession(siteKey, sessionId, visitorId, userIdentifier, payloadContext);
+
+      for (const event of acceptedEvents) {
+        const metadata = safeJson(event.metadata);
+        const context = { ...payloadContext, ...safeJson(event.context) };
+        await this.insertEvent(siteKey, sessionId, visitorId, event, metadata, context);
+        await this.updateVisitIndexes(siteKey, sessionId, visitorId, event, metadata);
+
+        if (event.type === 'identify') {
+          await this.updateSessionIdentity(siteKey, sessionId, String(metadata['userId'] ?? userIdentifier ?? ''));
+        }
+      }
+
+      await pg.query('COMMIT');
+    } catch (error) {
+      await pg.query('ROLLBACK');
+      throw error;
+    }
 
     return {
       siteKey,
       sessionId,
       sentAt: sentAt ?? new Date().toISOString(),
-      totalReceivedEvents: events.length,
+      totalReceivedEvents: acceptedEvents.length,
+      droppedEvents: Math.max(events.length - acceptedEvents.length, 0),
     };
   }
 
-  async listRecentEvents(limit = 20, siteKey?: string) {
-    const filters = [];
-    const values: any[] = [limit];
-
+  async listRecentEvents(limit = 30, siteKey?: string, userId?: string) {
     if (siteKey) {
-      filters.push(`s.site_key = $2`);
-      values.push(siteKey);
+      await this.assertSiteAccess(siteKey, userId);
+    } else if (userId) {
+      await this.assertRoot(userId);
+    } else {
+      throw new Error('Usuario nao autenticado');
     }
 
-    const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+    const values: unknown[] = [Math.min(Math.max(limit, 1), 100)];
+    const filters: string[] = [];
+
+    if (siteKey) {
+      values.push(siteKey);
+      filters.push(`e.site_key = $${values.length}`);
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
     const result = await pg.query(
       `
         SELECT
-          s.site_key,
-          s.session_id,
-          e->>'eventId' as event_id,
-          e->>'type' as event_type,
-          e->>'url' as url,
-          e->>'path' as path,
-          e->>'title' as title,
-          e->>'occurredAt' as occurred_at,
-          e->'metadata' as metadata,
-          s.created_at
-        FROM browser_sessions s,
-        LATERAL jsonb_array_elements(s.events) e
+          e.site_key,
+          e.visitor_id,
+          e.session_id,
+          e.page_id,
+          e.event_id,
+          e.event_type,
+          e.event_name,
+          e.url,
+          e.path,
+          e.title,
+          e.occurred_at,
+          e.metadata,
+          e.context,
+          e.created_at
+        FROM sdk_events e
         ${whereClause}
-        ORDER BY (e->>'occurredAt')::timestamptz DESC
+        ORDER BY e.occurred_at DESC
         LIMIT $1
       `,
-      values
+      values,
     );
 
     return result.rows;
   }
 
-  async getStats(siteKey: string) {
-    if (!siteKey) throw new Error('siteKey é obrigatório');
+  async getStats(scope: DashboardScope) {
+    const siteKey = scope.siteKey;
+    if (!siteKey) throw new Error('siteKey e obrigatorio');
 
-    // Usuários Ativos: Sessões ativas nos últimos 5 minutos (ou seja, 5 * 60 = 300 segundos)
-    const activeUsersResult = await pg.query(`
-      SELECT COUNT(DISTINCT session_id) as active_users
-      FROM browser_sessions
-      WHERE site_key = $1 AND last_seen_at >= NOW() - INTERVAL '5 minutes'
-    `, [siteKey]);
+    await this.assertSiteAccess(siteKey, scope.userId);
 
-    const activeUsers = parseInt(activeUsersResult.rows[0].active_users, 10);
-
-    // Tempo médio por página em segundos
-    const timeOnPageResult = await pg.query(`
-      SELECT AVG(CAST(e->'metadata'->>'duration' AS numeric)) as avg_time
-      FROM browser_sessions s,
-      LATERAL jsonb_array_elements(s.events) e
-      WHERE s.site_key = $1 AND e->>'type' = 'time_on_page'
-    `, [siteKey]);
-
-    const avgTimeRaw = timeOnPageResult.rows[0].avg_time;
-    const avgTimeSeconds = avgTimeRaw ? Math.round(parseFloat(avgTimeRaw)) : 0;
+    const rangeHours = normalizeRangeHours(scope.rangeHours);
+    const [summary, topPages, topClicks, problemInteractions, formMetrics, errors, webVitals, devices, sources] =
+      await Promise.all([
+        this.getSummary(siteKey, rangeHours),
+        this.getTopPages(siteKey, rangeHours),
+        this.getTopClicks(siteKey, rangeHours),
+        this.getProblemInteractions(siteKey, rangeHours),
+        this.getFormMetrics(siteKey, rangeHours),
+        this.getErrors(siteKey, rangeHours),
+        this.getWebVitals(siteKey, rangeHours),
+        this.getDevices(siteKey, rangeHours),
+        this.getTrafficSources(siteKey, rangeHours),
+      ]);
 
     return {
-      activeUsers,
-      avgTimeSeconds
+      rangeHours,
+      summary,
+      topPages,
+      topClicks,
+      problemInteractions,
+      formMetrics,
+      errors,
+      webVitals,
+      devices,
+      trafficSources: sources,
     };
   }
 
-  private validateEvent(event: SdkEvent) {
-    if (!event.eventId) throw new Error('eventId é obrigatório');
-    if (!event.type) throw new Error('type é obrigatório');
-    if (!event.pageId) throw new Error('pageId é obrigatório');
-    if (!event.url) throw new Error('url é obrigatório');
-    if (!event.path) throw new Error('path é obrigatório');
-    if (!event.title) throw new Error('title é obrigatório');
+  async assertSiteAccess(siteKey: string, userId?: string) {
+    if (!userId) throw new Error('Usuario nao autenticado');
+
+    const result = await pg.query(
+      `
+        SELECT u.is_root, s.id
+        FROM users u
+        LEFT JOIN sites s ON (s.user_id = u.id OR u.is_root = true)
+        LEFT JOIN site_keys k ON k.site_id = s.id
+        WHERE u.id = $1 AND k.public_key = $2
+        LIMIT 1
+      `,
+      [userId, siteKey],
+    );
+
+    if (result.rowCount === 0) {
+      throw new Error('Site nao encontrado ou sem permissao');
+    }
   }
 
-  private async upsertSessionWithEvents(siteKey: string, sessionId: string, newEvents: SdkEvent[]) {
-    // Valida todos antes de inserir
-    newEvents.forEach(e => this.validateEvent(e));
-    
+  async assertRoot(userId: string) {
+    const result = await pg.query(`SELECT is_root FROM users WHERE id = $1`, [userId]);
+    if (result.rowCount === 0 || !result.rows[0].is_root) {
+      throw new Error('Acesso restrito ao administrador');
+    }
+  }
+
+  private validateEvent(event: SdkEvent) {
+    if (!event.eventId) throw new Error('eventId e obrigatorio');
+    if (!event.type) throw new Error('type e obrigatorio');
+    if (!event.pageId) throw new Error('pageId e obrigatorio');
+    if (!event.url) throw new Error('url e obrigatorio');
+    if (!event.path) throw new Error('path e obrigatorio');
+    if (!event.title && event.title !== '') throw new Error('title e obrigatorio');
+    if (!event.occurredAt) throw new Error('occurredAt e obrigatorio');
+  }
+
+  private async upsertSession(
+    siteKey: string,
+    sessionId: string,
+    visitorId: string | null,
+    userIdentifier: string | null,
+    context: Record<string, unknown>,
+  ) {
     await pg.query(
       `
-        INSERT INTO browser_sessions (site_key, session_id, events)
-        VALUES ($1, $2, $3::jsonb)
+        INSERT INTO browser_sessions (site_key, visitor_id, session_id, user_identifier, context)
+        VALUES ($1, $2, $3, $4, $5::jsonb)
         ON CONFLICT (site_key, session_id)
-        DO UPDATE SET 
-          last_seen_at = NOW(),
-          events = COALESCE(browser_sessions.events, '[]'::jsonb) || EXCLUDED.events
+        DO UPDATE SET
+          visitor_id = COALESCE(EXCLUDED.visitor_id, browser_sessions.visitor_id),
+          user_identifier = COALESCE(EXCLUDED.user_identifier, browser_sessions.user_identifier),
+          context = COALESCE(browser_sessions.context, '{}'::jsonb) || EXCLUDED.context,
+          last_seen_at = NOW()
       `,
-      [siteKey, sessionId, JSON.stringify(newEvents)]
+      [siteKey, visitorId, sessionId, userIdentifier, JSON.stringify(context)],
     );
-    console.log(`[SDK_LOG] ${newEvents.length} eventos agrupados salvos na sessão ${sessionId}`);
+  }
+
+  private async updateSessionIdentity(siteKey: string, sessionId: string, userIdentifier: string) {
+    if (!userIdentifier) return;
+
+    await pg.query(
+      `
+        UPDATE browser_sessions
+        SET user_identifier = $3, last_seen_at = NOW()
+        WHERE site_key = $1 AND session_id = $2
+      `,
+      [siteKey, sessionId, userIdentifier],
+    );
+  }
+
+  private async insertEvent(
+    siteKey: string,
+    sessionId: string,
+    visitorId: string | null,
+    event: SdkEvent,
+    metadata: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ) {
+    await pg.query(
+      `
+        INSERT INTO sdk_events (
+          event_id,
+          site_key,
+          visitor_id,
+          session_id,
+          page_id,
+          event_type,
+          event_name,
+          url,
+          path,
+          title,
+          occurred_at,
+          metadata,
+          context
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::jsonb, $13::jsonb)
+        ON CONFLICT (event_id) DO NOTHING
+      `,
+      [
+        event.eventId,
+        siteKey,
+        visitorId,
+        sessionId,
+        event.pageId,
+        event.type,
+        event.name ?? null,
+        event.url,
+        event.path,
+        event.title,
+        event.occurredAt,
+        JSON.stringify(metadata),
+        JSON.stringify(context),
+      ],
+    );
+  }
+
+  private async updateVisitIndexes(
+    siteKey: string,
+    sessionId: string,
+    visitorId: string | null,
+    event: SdkEvent,
+    metadata: Record<string, unknown>,
+  ) {
+    if (event.type === 'page_view' || event.type === 'route_change') {
+      await pg.query(
+        `
+          INSERT INTO page_visits (site_key, visitor_id, session_id, page_id, url, path, title, entered_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz)
+          ON CONFLICT (site_key, session_id, page_id) DO NOTHING
+        `,
+        [siteKey, visitorId, sessionId, event.pageId, event.url, event.path, event.title, event.occurredAt],
+      );
+      return;
+    }
+
+    if (event.type === 'page_leave') {
+      await pg.query(
+        `
+          UPDATE page_visits
+          SET
+            left_at = $4::timestamptz,
+            duration_ms = COALESCE($5, duration_ms),
+            max_scroll_depth = GREATEST(COALESCE(max_scroll_depth, 0), COALESCE($6, 0))
+          WHERE site_key = $1 AND session_id = $2 AND page_id = $3
+        `,
+        [
+          siteKey,
+          sessionId,
+          event.pageId,
+          event.occurredAt,
+          asInt(metadata['durationMs'], 0) || null,
+          asInt(metadata['maxScrollDepth'], 0) || null,
+        ],
+      );
+      return;
+    }
+
+    if (event.type === 'scroll_depth') {
+      await pg.query(
+        `
+          UPDATE page_visits
+          SET max_scroll_depth = GREATEST(COALESCE(max_scroll_depth, 0), COALESCE($4, 0))
+          WHERE site_key = $1 AND session_id = $2 AND page_id = $3
+        `,
+        [siteKey, sessionId, event.pageId, asInt(metadata['depth'], 0)],
+      );
+    }
+  }
+
+  private async getSummary(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        WITH scoped AS (
+          SELECT *
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+        ),
+        page_counts AS (
+          SELECT session_id, COUNT(*) FILTER (WHERE event_type IN ('page_view', 'route_change')) as page_count
+          FROM scoped
+          GROUP BY session_id
+        ),
+        durations AS (
+          SELECT AVG(
+            COALESCE(
+              (metadata->>'durationMs')::numeric / 1000,
+              (metadata->>'duration')::numeric
+            )
+          ) as avg_time_seconds
+          FROM scoped
+          WHERE event_type IN ('page_leave', 'time_on_page')
+        ),
+        totals AS (
+          SELECT
+            COUNT(*)::int as total_events,
+            COUNT(*) FILTER (WHERE event_type IN ('page_view', 'route_change'))::int as page_views,
+            COUNT(DISTINCT COALESCE(visitor_id, session_id))::int as unique_visitors,
+            COUNT(DISTINCT session_id)::int as sessions,
+            COUNT(*) FILTER (WHERE event_type IN ('js_error', 'resource_error', 'api_error'))::int as errors,
+            COUNT(*) FILTER (WHERE event_type = 'dead_click')::int as dead_clicks,
+            COUNT(*) FILTER (WHERE event_type = 'rage_click')::int as rage_clicks,
+            COUNT(*) FILTER (WHERE event_type = 'form_start')::int as form_starts,
+            COUNT(*) FILTER (WHERE event_type = 'form_submit')::int as form_submits,
+            COUNT(*) FILTER (WHERE event_type = 'form_abandon')::int as form_abandons
+          FROM scoped
+        ),
+        bounce AS (
+          SELECT
+            COALESCE(
+              ROUND(100 * AVG(CASE WHEN page_count <= 1 THEN 1 ELSE 0 END))::int,
+              0
+            ) as bounce_rate
+          FROM page_counts
+        )
+        SELECT
+          totals.*,
+          COALESCE((SELECT ROUND(avg_time_seconds)::int FROM durations), 0) as avg_time_seconds,
+          bounce.bounce_rate
+        FROM totals, bounce
+      `,
+      [siteKey, rangeHours],
+    );
+
+    const activeUsersResult = await pg.query(
+      `
+        SELECT COUNT(DISTINCT COALESCE(visitor_id, session_id))::int as active_users
+        FROM browser_sessions
+        WHERE site_key = $1 AND last_seen_at >= NOW() - INTERVAL '5 minutes'
+      `,
+      [siteKey],
+    );
+
+    const row = result.rows[0] ?? {};
+    const formStarts = asInt(row.form_starts);
+    const formSubmits = asInt(row.form_submits);
+
+    return {
+      totalEvents: asInt(row.total_events),
+      pageViews: asInt(row.page_views),
+      uniqueVisitors: asInt(row.unique_visitors),
+      sessions: asInt(row.sessions),
+      activeUsers: asInt(activeUsersResult.rows[0]?.active_users),
+      avgTimeSeconds: asInt(row.avg_time_seconds),
+      bounceRate: asInt(row.bounce_rate),
+      errors: asInt(row.errors),
+      deadClicks: asInt(row.dead_clicks),
+      rageClicks: asInt(row.rage_clicks),
+      formStarts,
+      formSubmits,
+      formAbandons: asInt(row.form_abandons),
+      formConversionRate: formStarts > 0 ? Math.round((formSubmits / formStarts) * 100) : 0,
+    };
+  }
+
+  private async getTopPages(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        WITH views AS (
+          SELECT path, title, COUNT(*)::int as views, COUNT(DISTINCT COALESCE(visitor_id, session_id))::int as visitors
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+            AND event_type IN ('page_view', 'route_change')
+          GROUP BY path, title
+        ),
+        durations AS (
+          SELECT path, ROUND(AVG((metadata->>'durationMs')::numeric / 1000))::int as avg_time_seconds
+          FROM sdk_events
+          WHERE site_key = $1
+            AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+            AND event_type = 'page_leave'
+          GROUP BY path
+        )
+        SELECT v.path, v.title, v.views, v.visitors, COALESCE(d.avg_time_seconds, 0) as avg_time_seconds
+        FROM views v
+        LEFT JOIN durations d ON d.path = v.path
+        ORDER BY v.views DESC
+        LIMIT 8
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.map((row) => ({
+      path: row.path,
+      title: row.title,
+      views: asInt(row.views),
+      visitors: asInt(row.visitors),
+      avgTimeSeconds: asInt(row.avg_time_seconds),
+    }));
+  }
+
+  private async getTopClicks(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        SELECT
+          COALESCE(metadata->>'selector', metadata->>'id', metadata->>'tag', 'unknown') as selector,
+          COALESCE(metadata->>'text', '') as text,
+          COALESCE(metadata->>'tag', '') as tag,
+          path,
+          COUNT(*)::int as total
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          AND event_type = 'click'
+        GROUP BY selector, text, tag, path
+        ORDER BY total DESC
+        LIMIT 10
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.map((row) => ({
+      selector: row.selector,
+      text: row.text,
+      tag: row.tag,
+      path: row.path,
+      total: asInt(row.total),
+    }));
+  }
+
+  private async getProblemInteractions(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        SELECT
+          event_type,
+          COALESCE(metadata->>'selector', 'unknown') as selector,
+          COALESCE(metadata->>'text', '') as text,
+          path,
+          COUNT(*)::int as total
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          AND event_type IN ('dead_click', 'rage_click')
+        GROUP BY event_type, selector, text, path
+        ORDER BY total DESC
+        LIMIT 10
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.map((row) => ({
+      type: row.event_type,
+      selector: row.selector,
+      text: row.text,
+      path: row.path,
+      total: asInt(row.total),
+    }));
+  }
+
+  private async getFormMetrics(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        SELECT
+          path,
+          COALESCE(metadata->>'formId', metadata->>'id', metadata->>'selector', 'form') as form_id,
+          COUNT(*) FILTER (WHERE event_type = 'form_start')::int as starts,
+          COUNT(*) FILTER (WHERE event_type = 'form_submit')::int as submits,
+          COUNT(*) FILTER (WHERE event_type = 'form_abandon')::int as abandons
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          AND event_type IN ('form_start', 'form_submit', 'form_abandon')
+        GROUP BY path, form_id
+        ORDER BY starts DESC, abandons DESC
+        LIMIT 10
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.map((row) => {
+      const starts = asInt(row.starts);
+      const submits = asInt(row.submits);
+      return {
+        path: row.path,
+        formId: row.form_id,
+        starts,
+        submits,
+        abandons: asInt(row.abandons),
+        conversionRate: starts > 0 ? Math.round((submits / starts) * 100) : 0,
+      };
+    });
+  }
+
+  private async getErrors(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        SELECT
+          event_type,
+          COALESCE(metadata->>'message', metadata->>'source', 'Erro sem mensagem') as message,
+          path,
+          COUNT(*)::int as total,
+          MAX(occurred_at) as last_seen_at
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          AND event_type IN ('js_error', 'resource_error', 'api_error')
+        GROUP BY event_type, message, path
+        ORDER BY total DESC, last_seen_at DESC
+        LIMIT 10
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.map((row) => ({
+      type: row.event_type,
+      message: row.message,
+      path: row.path,
+      total: asInt(row.total),
+      lastSeenAt: row.last_seen_at,
+    }));
+  }
+
+  private async getWebVitals(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        SELECT
+          LOWER(metadata->>'name') as name,
+          ROUND(AVG((metadata->>'value')::numeric), 2)::float as value,
+          COUNT(*)::int as samples
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+          AND event_type = 'web_vital'
+          AND metadata ? 'name'
+          AND metadata ? 'value'
+        GROUP BY name
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.reduce<Record<string, { value: number; samples: number }>>((acc, row) => {
+      acc[row.name] = {
+        value: asNumber(row.value),
+        samples: asInt(row.samples),
+      };
+      return acc;
+    }, {});
+  }
+
+  private async getDevices(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        SELECT
+          COALESCE(context->>'deviceType', 'unknown') as device_type,
+          COUNT(DISTINCT COALESCE(visitor_id, session_id))::int as visitors
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+        GROUP BY device_type
+        ORDER BY visitors DESC
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.map((row) => ({
+      deviceType: row.device_type,
+      visitors: asInt(row.visitors),
+    }));
+  }
+
+  private async getTrafficSources(siteKey: string, rangeHours: number) {
+    const result = await pg.query(
+      `
+        SELECT
+          COALESCE(NULLIF(context->'utm'->>'source', ''), NULLIF(context->>'referrerHost', ''), 'direct') as source,
+          COUNT(DISTINCT COALESCE(visitor_id, session_id))::int as visitors,
+          COUNT(*) FILTER (WHERE event_type IN ('page_view', 'route_change'))::int as page_views
+        FROM sdk_events
+        WHERE site_key = $1
+          AND occurred_at >= NOW() - ($2::int * INTERVAL '1 hour')
+        GROUP BY source
+        ORDER BY visitors DESC, page_views DESC
+        LIMIT 8
+      `,
+      [siteKey, rangeHours],
+    );
+
+    return result.rows.map((row) => ({
+      source: row.source,
+      visitors: asInt(row.visitors),
+      pageViews: asInt(row.page_views),
+    }));
   }
 }
