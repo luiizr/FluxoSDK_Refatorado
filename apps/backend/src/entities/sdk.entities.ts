@@ -42,6 +42,7 @@ export type PageVisit = {
 export type SdkEventType =
   | 'page_view'
   | 'route_change'
+  | 'navigation'
   | 'page_leave'
   | 'click'
   | 'dead_click'
@@ -50,6 +51,9 @@ export type SdkEventType =
   | 'form_submit'
   | 'form_abandon'
   | 'field_error'
+  | 'form_error'
+  | 'input_focus'
+  | 'input_blur'
   | 'scroll_depth'
   | 'web_vital'
   | 'performance'
@@ -59,25 +63,41 @@ export type SdkEventType =
   | 'custom'
   | 'identify';
 
+export type SdkEventElement = {
+  selector?: string;
+  text?: string;
+  tag?: string;
+};
+
 export type SdkEvent = {
-  eventId: string;
+  eventId?: string;
+  event_id?: string;
   type: SdkEventType | string;
+  event_type?: SdkEventType | string;
   name?: string;
-  pageId: string;
+  pageId?: string;
+  page_id?: string;
   url: string;
   path: string;
-  title: string;
-  occurredAt: string;
+  title?: string;
+  occurredAt?: string;
+  occurred_at?: string;
+  element?: SdkEventElement;
   metadata?: Record<string, unknown>;
   context?: Record<string, unknown>;
 };
 
 export type ReceiveSdkEventsPayload = {
-  siteKey: string;
+  siteKey?: string;
+  site_key?: string;
   visitorId?: string;
-  sessionId: string;
+  visitor_id?: string;
+  sessionId?: string;
+  session_id?: string;
   userIdentifier?: string;
+  user_identifier?: string;
   sentAt?: string;
+  sent_at?: string;
   context?: Record<string, unknown>;
   events: SdkEvent[];
 };
