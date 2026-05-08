@@ -69,6 +69,30 @@
     return null;
   }
 
+  function isIgnoredElement(target) {
+    return Boolean(closestElement(target, '[data-fluxo-ignore],[data-sensitive]'));
+  }
+
+  function isSensitiveElement(element) {
+    if (!element || !element.tagName) return false;
+    var tag = element.tagName.toLowerCase();
+    var type = (element.getAttribute('type') || '').toLowerCase();
+    var name = (element.getAttribute('name') || '').toLowerCase();
+    var autocomplete = (element.getAttribute('autocomplete') || '').toLowerCase();
+    var inputMode = (element.getAttribute('inputmode') || '').toLowerCase();
+    var sensitivePattern = /(password|pass|pwd|card|credit|cc-|cc_|cvv|cvc|cpf|cnpj|document|ssn|token|secret|email|phone|tel)/;
+
+    if (element.hasAttribute('data-fluxo-ignore') || element.hasAttribute('data-sensitive')) return true;
+    if (tag === 'input' && ['password', 'email', 'tel', 'number'].indexOf(type) >= 0) return true;
+    return sensitivePattern.test(type) || sensitivePattern.test(name) || sensitivePattern.test(autocomplete) || sensitivePattern.test(inputMode);
+  }
+
+  function safeElementText(element) {
+    if (!element || isSensitiveElement(element)) return '';
+    if (element.tagName && ['INPUT', 'SELECT', 'TEXTAREA'].indexOf(element.tagName) >= 0) return '';
+    return sanitizeText(element.textContent || '', MAX_TEXT_LENGTH);
+  }
+
   function buildSelector(element) {
     if (!element || !element.tagName) return 'unknown';
 
@@ -101,8 +125,8 @@
       selector: buildSelector(element),
       tag: element && element.tagName ? element.tagName.toLowerCase() : 'unknown',
       id: element && element.id ? sanitizeText(element.id, 48) : '',
-      name: element && element.name ? sanitizeText(element.name, 48) : '',
-      text: sanitizeText(element && element.textContent ? element.textContent : element && element.value ? element.value : '', MAX_TEXT_LENGTH),
+      name: element && !isSensitiveElement(element) && element.name ? sanitizeText(element.name, 48) : '',
+      text: safeElementText(element),
       href: href ? href.split('#')[0].slice(0, 180) : '',
       role: element && element.getAttribute ? sanitizeText(element.getAttribute('role'), 32) : '',
       disabled: Boolean(element && element.disabled),
@@ -189,21 +213,24 @@
     };
   }
 
-  function startSdk() {
-    var script = getCurrentScript();
-    if (!script) return;
+  function startSdk(config) {
+    if (window.FluxoSDK && window.FluxoSDK.__booted) return window.FluxoSDK;
 
-    var siteKey = script.dataset.siteKey || '';
+    config = config || {};
+    var script = getCurrentScript();
+
+    var siteKey = config.siteKey || (script && script.dataset.siteKey) || '';
     if (!siteKey) return;
 
-    var sampleRate = clampNumber(script.dataset.sampleRate, 1, 0, 1);
+    var sampleRate = clampNumber(config.sampleRate || (script && script.dataset.sampleRate), 1, 0, 1);
     if (sampleRate < 1 && Math.random() > sampleRate) return;
 
-    var apiUrl = script.dataset.apiUrl || (script.src ? new URL(script.src).origin : window.location.origin);
-    var flushMs = clampNumber(script.dataset.flushMs, DEFAULT_FLUSH_MS, 1000, 30000);
-    var batchSize = clampNumber(script.dataset.batchSize, DEFAULT_BATCH_SIZE, 5, 100);
-    var debug = script.dataset.debug === 'true';
-    var trackApiErrors = script.dataset.trackApiErrors === 'true';
+    var apiUrl = config.endpoint || config.apiUrl || (script && script.dataset.apiUrl) || (script && script.src ? new URL(script.src).origin : window.location.origin);
+    var flushMs = clampNumber(config.flushInterval || config.flushMs || (script && script.dataset.flushMs), DEFAULT_FLUSH_MS, 1000, 30000);
+    var batchSize = clampNumber(config.batchSize || (script && script.dataset.batchSize), DEFAULT_BATCH_SIZE, 5, 100);
+    var debug = config.debug === true || (script && script.dataset.debug === 'true');
+    var trackApiErrors = config.trackApiErrors === true || (script && script.dataset.trackApiErrors === 'true');
+    var autoTrack = config.autoTrack !== false;
 
     var visitorId = getOrCreateStoredId(window.localStorage, storageKey('visitor_id', siteKey), 'vis');
     var sessionId = getOrCreateStoredId(window.sessionStorage, storageKey('session_id', siteKey), 'sess');
@@ -248,7 +275,7 @@
         events: events,
       });
 
-      var endpoint = apiUrl.replace(/\/$/, '') + '/api/sdk/events';
+      var endpoint = apiUrl.replace(/\/$/, '') + '/api/sdk/events?site_key=' + encodeURIComponent(siteKey);
 
       if (preferBeacon && navigator.sendBeacon) {
         try {
@@ -262,9 +289,10 @@
       if (!window.fetch) return;
 
       fetch(endpoint, {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Fluxo-Site-Key': siteKey,
         },
         body: payload,
         keepalive: preferBeacon,
@@ -342,6 +370,7 @@
     }
 
     function trackClick(event) {
+      if (isIgnoredElement(event.target)) return;
       var metadata = elementMetadata(event.target);
       queueEvent(buildEvent('click', metadata));
 
@@ -390,6 +419,7 @@
       var names = [];
       for (var i = 0; i < fields.length; i += 1) {
         var field = fields[i];
+        if (isSensitiveElement(field)) continue;
         if (field.name) names.push(sanitizeText(field.name, 48));
       }
 
@@ -404,8 +434,10 @@
     }
 
     function trackFormStart(event) {
+      if (isIgnoredElement(event.target) || isSensitiveElement(event.target)) return;
       var form = closestElement(event.target, 'form');
       if (!form) return;
+      if (isIgnoredElement(form)) return;
 
       var key = getFormKey(form);
       if (page.forms[key]) return;
@@ -422,6 +454,7 @@
     function trackFormSubmit(event) {
       var form = closestElement(event.target, 'form');
       if (!form) return;
+      if (isIgnoredElement(form)) return;
 
       var key = getFormKey(form);
       var metadata = collectFormMetadata(form);
@@ -432,6 +465,20 @@
       };
 
       queueEvent(buildEvent('form_submit', metadata));
+    }
+
+    function trackInputFocus(event) {
+      if (isIgnoredElement(event.target) || isSensitiveElement(event.target)) return;
+      var element = closestElement(event.target, 'input,select,textarea');
+      if (!element) return;
+      queueEvent(buildEvent('input_focus', elementMetadata(element)));
+    }
+
+    function trackInputBlur(event) {
+      if (isIgnoredElement(event.target) || isSensitiveElement(event.target)) return;
+      var element = closestElement(event.target, 'input,select,textarea');
+      if (!element) return;
+      queueEvent(buildEvent('input_blur', elementMetadata(element)));
     }
 
     function trackFormAbandons(pageSnapshot) {
@@ -681,22 +728,27 @@
       return result;
     };
 
-    window.addEventListener('popstate', handleRouteChanged);
-    document.addEventListener('click', trackClick, true);
-    document.addEventListener('focusin', trackFormStart, true);
-    document.addEventListener('submit', trackFormSubmit, true);
-    window.addEventListener('error', trackRuntimeError, true);
-    window.addEventListener('unhandledrejection', trackUnhandledRejection);
-    window.addEventListener('beforeunload', function () {
-      trackPageLeave('unload', true);
-      flush(true);
-    });
-    window.addEventListener('pagehide', function () {
-      trackPageLeave('pagehide', true);
-      flush(true);
-    });
+    if (autoTrack) {
+      window.addEventListener('popstate', handleRouteChanged);
+      document.addEventListener('click', trackClick, true);
+      document.addEventListener('focusin', trackFormStart, true);
+      document.addEventListener('focusin', trackInputFocus, true);
+      document.addEventListener('focusout', trackInputBlur, true);
+      document.addEventListener('submit', trackFormSubmit, true);
+      window.addEventListener('error', trackRuntimeError, true);
+      window.addEventListener('unhandledrejection', trackUnhandledRejection);
+      window.addEventListener('beforeunload', function () {
+        trackPageLeave('unload', true);
+        flush(true);
+      });
+      window.addEventListener('pagehide', function () {
+        trackPageLeave('pagehide', true);
+        flush(true);
+      });
+    }
 
     window.FluxoSDK = {
+      __booted: true,
       version: VERSION,
       siteKey: siteKey,
       apiUrl: apiUrl,
@@ -733,6 +785,9 @@
         flush(false);
       },
     };
+    window.Fluxo = window.FluxoSDK;
+
+    if (!autoTrack) return window.FluxoSDK;
 
     startPage('page_view');
     observeWebVitals();
@@ -745,7 +800,14 @@
         setTimeout(sendNavigationPerformance, 0);
       });
     }
+
+    return window.FluxoSDK;
   }
 
-  startSdk();
+  window.Fluxo = window.Fluxo || {};
+  window.Fluxo.init = function (config) {
+    return startSdk(config || {});
+  };
+
+  startSdk(window.FluxoConfig || {});
 })();

@@ -1,12 +1,22 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+CREATE TABLE IF NOT EXISTS companies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NULL REFERENCES companies(id) ON DELETE SET NULL,
   name TEXT,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   is_root BOOLEAN DEFAULT FALSE,
+  role TEXT NOT NULL DEFAULT 'admin',
+  cfg_token TEXT NULL,
   profile_picture_url TEXT,
+  profile_image_url TEXT,
   is_first_login BOOLEAN DEFAULT TRUE,
   is_active BOOLEAN DEFAULT TRUE,
   last_login_at TIMESTAMPTZ,
@@ -16,9 +26,11 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS sites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NULL REFERENCES companies(id) ON DELETE SET NULL,
   user_id UUID NULL REFERENCES users(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   domain TEXT NOT NULL,
+  allowed_origins JSONB NOT NULL DEFAULT '[]'::jsonb,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -31,6 +43,30 @@ CREATE TABLE IF NOT EXISTS site_keys (
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   revoked_at TIMESTAMPTZ NULL
+);
+
+CREATE TABLE IF NOT EXISTS visitors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  site_key TEXT NOT NULL,
+  visitor_id TEXT NOT NULL,
+  first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(site_id, visitor_id)
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  visitor_id TEXT NULL,
+  session_id TEXT NOT NULL,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ended_at TIMESTAMPTZ NULL,
+  landing_path TEXT NULL,
+  exit_path TEXT NULL,
+  user_agent TEXT NULL,
+  referrer TEXT NULL,
+  UNIQUE(site_id, session_id)
 );
 
 CREATE TABLE IF NOT EXISTS browser_sessions (
@@ -82,15 +118,127 @@ CREATE TABLE IF NOT EXISTS sdk_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS sdk_events_raw (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  site_key TEXT NOT NULL,
+  event_id TEXT NOT NULL UNIQUE,
+  visitor_id TEXT NULL,
+  session_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  path TEXT NOT NULL,
+  url TEXT NOT NULL,
+  element_selector TEXT NULL,
+  element_text TEXT NULL,
+  element_tag TEXT NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  context JSONB NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at TIMESTAMPTZ NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS metric_definitions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT NULL,
+  source TEXT NOT NULL,
+  event_type TEXT NULL,
+  aggregation TEXT NOT NULL,
+  field TEXT NULL,
+  filters JSONB NOT NULL DEFAULT '[]'::jsonb,
+  group_by JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_by UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS intent_rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  intent_type TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  conditions JSONB NOT NULL DEFAULT '{}'::jsonb,
+  weight NUMERIC NOT NULL DEFAULT 1,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS detected_intents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  visitor_id TEXT NULL,
+  session_id TEXT NULL,
+  intent_type TEXT NOT NULL,
+  rule_id UUID NULL REFERENCES intent_rules(id) ON DELETE SET NULL,
+  score NUMERIC NOT NULL DEFAULT 0,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS metric_aggregates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  metric_key TEXT NOT NULL,
+  dimensions JSONB NOT NULL DEFAULT '{}'::jsonb,
+  period TEXT NOT NULL DEFAULT 'day',
+  period_start TIMESTAMPTZ NOT NULL,
+  value NUMERIC NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(site_id, metric_key, dimensions, period, period_start)
+);
+
+CREATE TABLE IF NOT EXISTS kpis (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  metric_id UUID NOT NULL REFERENCES metric_definitions(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  chart_type TEXT NOT NULL,
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS dashboards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  created_by UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS dashboard_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  dashboard_id UUID NOT NULL REFERENCES dashboards(id) ON DELETE CASCADE,
+  kpi_id UUID NOT NULL REFERENCES kpis(id) ON DELETE CASCADE,
+  pos_x INTEGER NOT NULL DEFAULT 0,
+  pos_y INTEGER NOT NULL DEFAULT 0,
+  width INTEGER NOT NULL DEFAULT 4,
+  height INTEGER NOT NULL DEFAULT 3,
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS company_id UUID NULL REFERENCES companies(id) ON DELETE SET NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_root BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'admin';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS cfg_token TEXT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_first_login BOOLEAN DEFAULT TRUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
-ALTER TABLE sites ADD COLUMN IF NOT EXISTS user_id UUID NULL;
+ALTER TABLE sites ADD COLUMN IF NOT EXISTS company_id UUID NULL REFERENCES companies(id) ON DELETE SET NULL;
+ALTER TABLE sites ADD COLUMN IF NOT EXISTS user_id UUID NULL REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE sites ADD COLUMN IF NOT EXISTS allowed_origins JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE browser_sessions ADD COLUMN IF NOT EXISTS visitor_id TEXT NULL;
 ALTER TABLE browser_sessions ADD COLUMN IF NOT EXISTS user_identifier TEXT NULL;
 ALTER TABLE browser_sessions ADD COLUMN IF NOT EXISTS context JSONB NOT NULL DEFAULT '{}'::jsonb;
@@ -112,8 +260,15 @@ BEGIN
   END IF;
 END $$;
 
+CREATE INDEX IF NOT EXISTS idx_users_company_id ON users(company_id);
+CREATE INDEX IF NOT EXISTS idx_sites_company_id ON sites(company_id);
 CREATE INDEX IF NOT EXISTS idx_site_keys_site_id ON site_keys(site_id);
 CREATE INDEX IF NOT EXISTS idx_sites_user_id ON sites(user_id);
+CREATE INDEX IF NOT EXISTS idx_visitors_site_id ON visitors(site_id);
+CREATE INDEX IF NOT EXISTS idx_visitors_last_seen ON visitors(last_seen_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_site_id ON sessions(site_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_session_id ON sessions(session_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
 CREATE INDEX IF NOT EXISTS idx_browser_sessions_site_key ON browser_sessions(site_key);
 CREATE INDEX IF NOT EXISTS idx_browser_sessions_session_id ON browser_sessions(session_id);
 CREATE INDEX IF NOT EXISTS idx_browser_sessions_visitor_id ON browser_sessions(visitor_id);
@@ -128,3 +283,12 @@ CREATE INDEX IF NOT EXISTS idx_sdk_events_page_id ON sdk_events(page_id);
 CREATE INDEX IF NOT EXISTS idx_sdk_events_event_type ON sdk_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_sdk_events_occurred_at ON sdk_events(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_sdk_events_site_type_time ON sdk_events(site_key, event_type, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sdk_events_raw_site_time ON sdk_events_raw(site_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sdk_events_raw_site_type_time ON sdk_events_raw(site_id, event_type, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_metric_definitions_site_id ON metric_definitions(site_id);
+CREATE INDEX IF NOT EXISTS idx_intent_rules_site_active ON intent_rules(site_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_detected_intents_site_time ON detected_intents(site_id, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_metric_aggregates_site_metric_period ON metric_aggregates(site_id, metric_key, period, period_start);
+CREATE INDEX IF NOT EXISTS idx_kpis_site_id ON kpis(site_id);
+CREATE INDEX IF NOT EXISTS idx_dashboards_site_id ON dashboards(site_id);
+CREATE INDEX IF NOT EXISTS idx_dashboard_items_dashboard_id ON dashboard_items(dashboard_id);

@@ -2,20 +2,24 @@ import { pg } from '../main';
 import * as crypto from 'crypto';
 
 export class SitesService {
-  async registerSite(name: string, domain: string, userId: string) {
+  async registerSite(name: string, domain: string, userId: string, allowedOriginsInput?: unknown) {
     if (!name) throw new Error('O nome do site e obrigatorio');
     if (!domain) throw new Error('O dominio e obrigatorio');
     if (!userId) throw new Error('Usuario invalido');
 
+    const user = await this.getUser(userId);
+    if (!user) throw new Error('Usuario invalido');
+
     const cleanDomain = domain.replace(/^https?:\/\//, '').split('/')[0];
+    const allowedOrigins = this.normalizeAllowedOrigins(allowedOriginsInput, cleanDomain);
 
     const result = await pg.query(
       `
-        INSERT INTO sites (name, domain, user_id)
-        VALUES ($1, $2, $3)
-        RETURNING id, name, domain, active, created_at
+        INSERT INTO sites (name, domain, user_id, company_id, allowed_origins)
+        VALUES ($1, $2, $3, $4, $5::jsonb)
+        RETURNING id, name, domain, allowed_origins, active, created_at
       `,
-      [name, cleanDomain, userId],
+      [name, cleanDomain, userId, user.company_id ?? null, JSON.stringify(allowedOrigins)],
     );
     const site = result.rows[0];
 
@@ -34,6 +38,7 @@ export class SitesService {
       id: site.id,
       name: site.name,
       domain: site.domain,
+      allowedOrigins: site.allowed_origins,
       active: site.active,
       created_at: site.created_at,
       siteKey: keyResult.rows[0].public_key,
@@ -49,7 +54,11 @@ export class SitesService {
 
     if (!user.is_root) {
       values.push(userId);
-      whereClause = 'WHERE s.user_id = $1';
+      values.push(user.company_id ?? '');
+      whereClause = `
+        WHERE s.user_id = $1
+           OR (s.company_id IS NOT NULL AND s.company_id = $2)
+      `;
     }
 
     const result = await pg.query(
@@ -58,6 +67,7 @@ export class SitesService {
           s.id,
           s.name,
           s.domain,
+          s.allowed_origins as "allowedOrigins",
           s.active,
           s.created_at,
           s.user_id as "userId",
@@ -80,8 +90,10 @@ export class SitesService {
     const user = await this.getUser(userId);
     if (!user) throw new Error('Usuario invalido');
 
-    const values = user.is_root ? [id] : [id, userId];
-    const whereClause = user.is_root ? 'id = $1' : 'id = $1 AND user_id = $2';
+    const values = user.is_root ? [id] : [id, userId, user.company_id ?? ''];
+    const whereClause = user.is_root
+      ? 'id = $1'
+      : '(id = $1 AND user_id = $2) OR (id = $1 AND company_id IS NOT NULL AND company_id = $3)';
 
     const check = await pg.query(`SELECT id FROM sites WHERE ${whereClause}`, values);
     if (check.rows.length === 0) {
@@ -94,7 +106,32 @@ export class SitesService {
   private async getUser(userId: string) {
     if (!userId) return null;
 
-    const result = await pg.query(`SELECT id, is_root FROM users WHERE id = $1`, [userId]);
+    const result = await pg.query(`SELECT id, is_root, company_id FROM users WHERE id = $1`, [userId]);
     return result.rows[0] ?? null;
+  }
+
+  private normalizeAllowedOrigins(input: unknown, domain: string) {
+    const rawOrigins = Array.isArray(input) ? input : [];
+    const origins = rawOrigins
+      .map((origin) => (typeof origin === 'string' ? origin.trim() : ''))
+      .filter(Boolean)
+      .map((origin) => {
+        try {
+          const parsed = new URL(origin.startsWith('http') ? origin : `https://${origin}`);
+          return `${parsed.protocol}//${parsed.host}`;
+        } catch {
+          return '';
+        }
+      })
+      .filter(Boolean);
+
+    try {
+      const defaultOrigin = new URL(`https://${domain}`);
+      origins.unshift(`${defaultOrigin.protocol}//${defaultOrigin.host}`);
+    } catch {
+      // Domain is already checked for presence. Invalid domains simply do not become allowed origins.
+    }
+
+    return Array.from(new Set(origins));
   }
 }

@@ -104,6 +104,69 @@ type DashboardStats = {
   trafficSources: TrafficSource[];
 };
 
+type MetricDefinition = {
+  id: string;
+  site_id: string;
+  name: string;
+  description?: string;
+  source: string;
+  event_type?: string;
+  aggregation: string;
+  field?: string;
+  filters?: unknown[];
+  group_by?: string[];
+  created_at: string;
+};
+
+type Kpi = {
+  id: string;
+  site_id: string;
+  metric_id: string;
+  name: string;
+  chart_type: 'number' | 'line' | 'bar' | 'pie' | 'table';
+  settings?: Record<string, unknown>;
+  metric_name?: string;
+  source?: string;
+  aggregation?: string;
+  field?: string;
+  group_by?: string[];
+};
+
+type KpiResult = {
+  kpiId: string;
+  name: string;
+  chartType: string;
+  metricId: string;
+  data: {
+    value?: number;
+    groups?: Array<{
+      key: Array<{ field: string; value: unknown }>;
+      value: number;
+    }>;
+  };
+};
+
+type DashboardItem = {
+  id: string;
+  dashboard_id: string;
+  kpi_id: string;
+  pos_x: number;
+  pos_y: number;
+  width: number;
+  height: number;
+  settings?: Record<string, unknown>;
+  kpi_name?: string;
+  chart_type?: string;
+  metric_name?: string;
+};
+
+type DashboardLayout = {
+  id: string;
+  site_id: string;
+  name: string;
+  items: DashboardItem[];
+};
+
 @Injectable({
   providedIn: 'root',
 })
@@ -159,14 +222,100 @@ export class SdkEventsService {
     if (!data.ok) throw new Error(data.message || 'Erro ao buscar metricas');
     return data.data as DashboardStats;
   }
+
+  async getMetricDefinitions(siteId: string): Promise<MetricDefinition[]> {
+    const response = await fetch(`${this.backendUrl}/api/sites/${siteId}/metric-definitions`, {
+      headers: { 'x-user-id': this.userId },
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.message || 'Erro ao buscar metric definitions');
+    return (data.data ?? []) as MetricDefinition[];
+  }
+
+  async createMetricDefinition(siteId: string, payload: Record<string, unknown>): Promise<MetricDefinition> {
+    const response = await fetch(`${this.backendUrl}/api/sites/${siteId}/metric-definitions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': this.userId,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.message || 'Erro ao criar metric definition');
+    return data.data as MetricDefinition;
+  }
+
+  async getKpis(siteId: string): Promise<Kpi[]> {
+    const response = await fetch(`${this.backendUrl}/api/sites/${siteId}/kpis`, {
+      headers: { 'x-user-id': this.userId },
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.message || 'Erro ao buscar KPIs');
+    return (data.data ?? []) as Kpi[];
+  }
+
+  async createKpi(siteId: string, payload: Record<string, unknown>): Promise<Kpi> {
+    const response = await fetch(`${this.backendUrl}/api/sites/${siteId}/kpis`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': this.userId,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.message || 'Erro ao criar KPI');
+    return data.data as Kpi;
+  }
+
+  async getKpiResult(kpiId: string): Promise<KpiResult> {
+    const response = await fetch(`${this.backendUrl}/api/kpis/${kpiId}/result`, {
+      headers: { 'x-user-id': this.userId },
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.message || 'Erro ao calcular KPI');
+    return data.data as KpiResult;
+  }
+
+  async getDashboard(siteId: string): Promise<DashboardLayout> {
+    const response = await fetch(`${this.backendUrl}/api/sites/${siteId}/dashboard`, {
+      headers: { 'x-user-id': this.userId },
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.message || 'Erro ao buscar dashboard');
+    return data.data as DashboardLayout;
+  }
+
+  async saveDashboardItems(
+    dashboardId: string,
+    items: Array<{ id?: string; kpiId: string; x: number; y: number; width: number; height: number }>
+  ): Promise<DashboardLayout> {
+    const response = await fetch(`${this.backendUrl}/api/dashboards/${dashboardId}/items`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': this.userId,
+      },
+      body: JSON.stringify({ items }),
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.message || 'Erro ao salvar layout');
+    return data.data as DashboardLayout;
+  }
 }
 
 export type {
   DashboardStats,
+  DashboardItem,
+  DashboardLayout,
   DeviceMetric,
   ErrorMetric,
   FormMetric,
+  Kpi,
+  KpiResult,
   LiveEvent,
+  MetricDefinition,
   ProblemInteraction,
   SummaryStats,
   TopClick,

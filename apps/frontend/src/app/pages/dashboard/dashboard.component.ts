@@ -5,8 +5,13 @@ import { Router } from '@angular/router';
 import { AdminService, type AdminOverview } from '../../services/admin.service';
 import {
   SdkEventsService,
+  type DashboardItem,
+  type DashboardLayout,
   type DashboardStats,
+  type Kpi,
+  type KpiResult,
   type LiveEvent,
+  type MetricDefinition,
   type SummaryStats,
 } from '../../services/sdk-events.service';
 import { SitesService, type Site } from '../../services/sites.service';
@@ -44,7 +49,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   protected currentUser = {
     name: 'Usuario',
     email: 'usuario@fluxosdk.com',
-    isRoot: false,
+    isRoot: true,
   };
 
   protected sdkLink = this.sdkEventsService.getSdkLink();
@@ -63,6 +68,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   protected liveEvents = signal<LiveEvent[]>([]);
   protected stats = signal<DashboardStats | null>(null);
   protected adminOverview = signal<AdminOverview | null>(null);
+  protected metricDefinitions = signal<MetricDefinition[]>([]);
+  protected kpis = signal<Kpi[]>([]);
+  protected kpiResults = signal<Record<string, KpiResult>>({});
+  protected dashboardLayout = signal<DashboardLayout | null>(null);
+
+  protected newMetricName = signal<string>('Eventos por tipo');
+  protected newMetricSource = signal<string>('events');
+  protected newMetricAggregation = signal<string>('count');
+  protected newMetricField = signal<string>('');
+  protected newMetricEventType = signal<string>('');
+  protected newMetricGroupBy = signal<string>('event_type');
+  protected selectedMetricId = signal<string>('');
+  protected newKpiName = signal<string>('KPI configuravel');
+  protected newKpiChartType = signal<string>('number');
+  protected isSavingKpi = signal<boolean>(false);
 
   async ngOnInit() {
     this.extractUserInfo();
@@ -83,6 +103,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.sites().find((site) => site.siteKey === this.selectedSiteKey()) ?? null;
   }
 
+  protected selectedSiteId() {
+    return this.selectedSite()?.id ?? '';
+  }
+
   protected sdkSnippet() {
     return `<script src="${this.sdkLink}" data-site-key="${this.selectedSiteKey()}" data-track-api-errors="true"></script>`;
   }
@@ -92,6 +116,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.activeTab.set(tab);
     if (tab === 'admin' && this.currentUser.isRoot) {
       void this.loadAdminOverview();
+    }
+    if (tab === 'kpis' && this.selectedSiteId()) {
+      void this.loadKpiData(this.selectedSiteId());
     }
   }
 
@@ -123,6 +150,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   protected trackByAdminUser(_index: number, user: { id: string }) {
     return user.id;
+  }
+
+  protected trackByMetricId(_index: number, metric: MetricDefinition) {
+    return metric.id;
+  }
+
+  protected trackByKpiId(_index: number, kpi: Kpi) {
+    return kpi.id;
   }
 
   protected eventLabel(type: string) {
@@ -162,6 +197,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   protected formatPercent(value: number) {
     return `${Math.round(value || 0)}%`;
+  }
+
+  protected kpiValue(kpiId: string) {
+    const result = this.kpiResults()[kpiId];
+    if (!result) return '--';
+    if (typeof result.data.value === 'number') return this.formatNumber(result.data.value);
+    return this.formatNumber(result.data.groups?.reduce((total, group) => total + (group.value || 0), 0) ?? 0);
+  }
+
+  protected kpiGroups(kpiId: string) {
+    return this.kpiResults()[kpiId]?.data.groups ?? [];
+  }
+
+  protected dashboardItemFor(kpiId: string): DashboardItem | undefined {
+    return this.dashboardLayout()?.items?.find((item) => item.kpi_id === kpiId);
+  }
+
+  protected gridColumn(kpiId: string) {
+    return `span ${this.dashboardItemFor(kpiId)?.width ?? 4}`;
+  }
+
+  protected gridRow(kpiId: string) {
+    return `span ${this.dashboardItemFor(kpiId)?.height ?? 3}`;
   }
 
   protected vitalValue(name: string) {
@@ -222,6 +280,84 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  protected async createMetricDefinition(event: Event) {
+    event.preventDefault();
+    const siteId = this.selectedSiteId();
+    if (!siteId || !this.newMetricName()) return;
+
+    this.isSavingKpi.set(true);
+    try {
+      const groupBy = this.newMetricGroupBy()
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const metric = await this.sdkEventsService.createMetricDefinition(siteId, {
+        name: this.newMetricName(),
+        source: this.newMetricSource(),
+        aggregation: this.newMetricAggregation(),
+        field: this.newMetricField() || undefined,
+        eventType: this.newMetricEventType() || undefined,
+        filters: [],
+        groupBy,
+      });
+
+      this.selectedMetricId.set(metric.id);
+      await this.loadKpiData(siteId);
+    } catch (error) {
+      this.dashboardError.set(this.getErrorMessage(error));
+    } finally {
+      this.isSavingKpi.set(false);
+    }
+  }
+
+  protected async createKpi(event: Event) {
+    event.preventDefault();
+    const siteId = this.selectedSiteId();
+    const metricId = this.selectedMetricId() || this.metricDefinitions()[0]?.id;
+    if (!siteId || !metricId || !this.newKpiName()) return;
+
+    this.isSavingKpi.set(true);
+    try {
+      await this.sdkEventsService.createKpi(siteId, {
+        metricId,
+        name: this.newKpiName(),
+        chartType: this.newKpiChartType(),
+        settings: {},
+      });
+      await this.loadKpiData(siteId);
+    } catch (error) {
+      this.dashboardError.set(this.getErrorMessage(error));
+    } finally {
+      this.isSavingKpi.set(false);
+    }
+  }
+
+  protected async saveCurrentLayout() {
+    const dashboard = this.dashboardLayout();
+    if (!dashboard) return;
+
+    this.isSavingKpi.set(true);
+    try {
+      const items = this.kpis().map((kpi, index) => {
+        const current = this.dashboardItemFor(kpi.id);
+        return {
+          id: current?.id,
+          kpiId: kpi.id,
+          x: current?.pos_x ?? (index % 3) * 4,
+          y: current?.pos_y ?? Math.floor(index / 3) * 3,
+          width: current?.width ?? 4,
+          height: current?.height ?? 3,
+        };
+      });
+      const updated = await this.sdkEventsService.saveDashboardItems(dashboard.id, items);
+      this.dashboardLayout.set(updated);
+    } catch (error) {
+      this.dashboardError.set(this.getErrorMessage(error));
+    } finally {
+      this.isSavingKpi.set(false);
+    }
+  }
+
   private extractUserInfo() {
     try {
       const email = localStorage.getItem('fluxosdk_user_email');
@@ -271,6 +407,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!siteKey) {
       this.liveEvents.set([]);
       this.stats.set(null);
+      this.metricDefinitions.set([]);
+      this.kpis.set([]);
+      this.kpiResults.set({});
+      this.dashboardLayout.set(null);
       return;
     }
 
@@ -283,6 +423,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       ]);
       this.liveEvents.set(events);
       this.stats.set(stats);
+      if (this.selectedSiteId()) {
+        await this.loadKpiData(this.selectedSiteId());
+      }
     } catch (error) {
       this.dashboardError.set(this.getErrorMessage(error));
     } finally {
@@ -294,6 +437,42 @@ export class DashboardComponent implements OnInit, OnDestroy {
     try {
       const overview = await this.adminService.getOverview();
       this.adminOverview.set(overview);
+    } catch (error) {
+      this.dashboardError.set(this.getErrorMessage(error));
+    }
+  }
+
+  private async loadKpiData(siteId: string) {
+    try {
+      const [metrics, kpis, dashboard] = await Promise.all([
+        this.sdkEventsService.getMetricDefinitions(siteId),
+        this.sdkEventsService.getKpis(siteId),
+        this.sdkEventsService.getDashboard(siteId),
+      ]);
+
+      this.metricDefinitions.set(metrics);
+      this.kpis.set(kpis);
+      this.dashboardLayout.set(dashboard);
+
+      if (!this.selectedMetricId() && metrics.length) {
+        this.selectedMetricId.set(metrics[0].id);
+      }
+
+      const results = await Promise.all(
+        kpis.map(async (kpi) => {
+          try {
+            return [kpi.id, await this.sdkEventsService.getKpiResult(kpi.id)] as const;
+          } catch {
+            return [kpi.id, null] as const;
+          }
+        }),
+      );
+      this.kpiResults.set(
+        results.reduce<Record<string, KpiResult>>((acc, [kpiId, result]) => {
+          if (result) acc[kpiId] = result;
+          return acc;
+        }, {}),
+      );
     } catch (error) {
       this.dashboardError.set(this.getErrorMessage(error));
     }

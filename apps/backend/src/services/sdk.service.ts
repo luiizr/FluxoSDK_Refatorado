@@ -1,5 +1,6 @@
 import { pg } from '../main';
 import type { ReceiveSdkEventsPayload, SdkEvent } from '../entities/sdk.entities';
+import { EventProcessingService } from './event-processing.service';
 
 type DashboardScope = {
   siteKey: string;
@@ -8,7 +9,67 @@ type DashboardScope = {
 };
 
 const MAX_EVENTS_PER_REQUEST = 100;
+const MAX_METADATA_BYTES = 8 * 1024;
+const MAX_STRING_LENGTH = 512;
+const MAX_ELEMENT_TEXT_LENGTH = 160;
 const DEFAULT_RANGE_HOURS = 24;
+
+const ALLOWED_EVENT_TYPES = new Set([
+  'page_view',
+  'route_change',
+  'navigation',
+  'page_leave',
+  'click',
+  'dead_click',
+  'rage_click',
+  'form_start',
+  'form_submit',
+  'form_abandon',
+  'field_error',
+  'form_error',
+  'input_focus',
+  'input_blur',
+  'scroll_depth',
+  'web_vital',
+  'performance',
+  'js_error',
+  'resource_error',
+  'api_error',
+  'custom',
+  'identify',
+]);
+
+const EVENT_TYPE_ALIASES: Record<string, string> = {
+  navigation: 'route_change',
+  form_error: 'field_error',
+};
+
+const SENSITIVE_KEY_PATTERN =
+  /(password|pass|pwd|token|secret|authorization|cookie|session|email|e-mail|phone|cpf|cnpj|document|card|credit|cvv|iban|ssn)/i;
+
+type NormalizedSdkEvent = {
+  eventId: string;
+  type: string;
+  name?: string;
+  pageId: string;
+  url: string;
+  path: string;
+  title: string;
+  occurredAt: string;
+  metadata: Record<string, unknown>;
+  context: Record<string, unknown>;
+};
+
+type NormalizedPayload = {
+  siteKey: string;
+  visitorId: string | null;
+  sessionId: string;
+  userIdentifier: string | null;
+  sentAt: string;
+  context: Record<string, unknown>;
+  events: NormalizedSdkEvent[];
+  originalEventCount: number;
+};
 
 function asNumber(value: unknown, fallback = 0) {
   const parsed = Number(value);
@@ -19,12 +80,71 @@ function asInt(value: unknown, fallback = 0) {
   return Math.round(asNumber(value, fallback));
 }
 
+function truncateText(value: unknown, maxLength = MAX_STRING_LENGTH) {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/[\u0000-\u001f\u007f]/g, '').slice(0, maxLength);
+}
+
+function sanitizeJsonValue(value: unknown, depth = 0): unknown {
+  if (depth > 4) return undefined;
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string') return truncateText(value);
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'boolean') return value;
+
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, 25)
+      .map((item) => sanitizeJsonValue(item, depth + 1))
+      .filter((item) => item !== undefined);
+  }
+
+  if (typeof value === 'object') {
+    const output: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>).slice(0, 50)) {
+      if (SENSITIVE_KEY_PATTERN.test(key)) continue;
+      const sanitized = sanitizeJsonValue(item, depth + 1);
+      if (sanitized !== undefined) output[truncateText(key, 64)] = sanitized;
+    }
+    return output;
+  }
+
+  return undefined;
+}
+
 function safeJson(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {};
   }
 
-  return value as Record<string, unknown>;
+  const sanitized = sanitizeJsonValue(value);
+  const result =
+    sanitized && typeof sanitized === 'object' && !Array.isArray(sanitized)
+      ? (sanitized as Record<string, unknown>)
+      : {};
+
+  if (Buffer.byteLength(JSON.stringify(result), 'utf8') > MAX_METADATA_BYTES) {
+    throw new Error('metadata excede o limite permitido');
+  }
+
+  return result;
+}
+
+function normalizeEventType(value: unknown) {
+  const eventType = truncateText(value, 80);
+  if (!eventType || !ALLOWED_EVENT_TYPES.has(eventType)) {
+    throw new Error('event_type invalido');
+  }
+
+  return EVENT_TYPE_ALIASES[eventType] ?? eventType;
+}
+
+function buildEventId(event: SdkEvent, index: number) {
+  const eventId = event.eventId ?? event.event_id;
+  if (eventId) return truncateText(eventId, 128);
+
+  const base = `${event.occurredAt ?? event.occurred_at ?? Date.now()}-${index}`;
+  return `evt_${Buffer.from(base).toString('base64url').slice(0, 32)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function normalizeRangeHours(value?: number) {
@@ -33,16 +153,11 @@ function normalizeRangeHours(value?: number) {
 }
 
 export class SdkService {
+  private eventProcessingService = new EventProcessingService();
+
   async receiveEvents(input: ReceiveSdkEventsPayload) {
-    const { siteKey, sessionId, sentAt, events } = input;
+    const payload = this.normalizePayload(input);
 
-    if (!siteKey) throw new Error('siteKey e obrigatorio');
-    if (!sessionId) throw new Error('sessionId e obrigatorio');
-    if (!Array.isArray(events) || events.length === 0) {
-      throw new Error('events deve ser um array com pelo menos um item');
-    }
-
-    const acceptedEvents = events.slice(0, MAX_EVENTS_PER_REQUEST);
     const keyResult = await pg.query(
       `
         SELECT k.active, k.site_id, s.active as site_active
@@ -50,7 +165,7 @@ export class SdkService {
         JOIN sites s ON s.id = k.site_id
         WHERE k.public_key = $1
       `,
-      [siteKey],
+      [payload.siteKey],
     );
 
     if (keyResult.rowCount === 0) {
@@ -61,24 +176,34 @@ export class SdkService {
       throw new Error('siteKey ou site esta desativado');
     }
 
-    const payloadContext = safeJson(input.context);
-    const visitorId = input.visitorId || null;
-    const userIdentifier = input.userIdentifier || null;
-
-    acceptedEvents.forEach((event) => this.validateEvent(event));
+    const siteId = String(keyResult.rows[0].site_id);
+    payload.events.forEach((event) => this.validateEvent(event));
 
     await pg.query('BEGIN');
     try {
-      await this.upsertSession(siteKey, sessionId, visitorId, userIdentifier, payloadContext);
+      await this.upsertVisitor(siteId, payload.siteKey, payload.visitorId);
+      await this.upsertSession(
+        payload.siteKey,
+        payload.sessionId,
+        payload.visitorId,
+        payload.userIdentifier,
+        payload.context,
+      );
+      await this.upsertTenantSession(siteId, payload);
 
-      for (const event of acceptedEvents) {
-        const metadata = safeJson(event.metadata);
-        const context = { ...payloadContext, ...safeJson(event.context) };
-        await this.insertEvent(siteKey, sessionId, visitorId, event, metadata, context);
-        await this.updateVisitIndexes(siteKey, sessionId, visitorId, event, metadata);
+      for (const event of payload.events) {
+        const context = { ...payload.context, ...event.context };
+        await this.insertRawEvent(siteId, payload.siteKey, payload.sessionId, payload.visitorId, event, context);
+        await this.insertEvent(payload.siteKey, payload.sessionId, payload.visitorId, event, event.metadata, context);
+        await this.updateVisitIndexes(payload.siteKey, payload.sessionId, payload.visitorId, event, event.metadata);
+        await this.eventProcessingService.processAcceptedEvent(siteId, payload.visitorId, payload.sessionId, event);
 
         if (event.type === 'identify') {
-          await this.updateSessionIdentity(siteKey, sessionId, String(metadata['userId'] ?? userIdentifier ?? ''));
+          await this.updateSessionIdentity(
+            payload.siteKey,
+            payload.sessionId,
+            String(event.metadata['userId'] ?? payload.userIdentifier ?? ''),
+          );
         }
       }
 
@@ -89,11 +214,11 @@ export class SdkService {
     }
 
     return {
-      siteKey,
-      sessionId,
-      sentAt: sentAt ?? new Date().toISOString(),
-      totalReceivedEvents: acceptedEvents.length,
-      droppedEvents: Math.max(events.length - acceptedEvents.length, 0),
+      siteKey: payload.siteKey,
+      sessionId: payload.sessionId,
+      sentAt: payload.sentAt,
+      totalReceivedEvents: payload.events.length,
+      droppedEvents: Math.max(payload.originalEventCount - payload.events.length, 0),
     };
   }
 
@@ -205,7 +330,60 @@ export class SdkService {
     }
   }
 
-  private validateEvent(event: SdkEvent) {
+  private normalizePayload(input: ReceiveSdkEventsPayload): NormalizedPayload {
+    const siteKey = truncateText(input.siteKey ?? input.site_key, 128);
+    const sessionId = truncateText(input.sessionId ?? input.session_id, 128);
+    const visitorId = truncateText(input.visitorId ?? input.visitor_id, 128) || null;
+    const userIdentifier = truncateText(input.userIdentifier ?? input.user_identifier, 256) || null;
+    const sentAt = truncateText(input.sentAt ?? input.sent_at ?? new Date().toISOString(), 64);
+
+    if (!siteKey) throw new Error('siteKey e obrigatorio');
+    if (!sessionId) throw new Error('sessionId e obrigatorio');
+    if (!Array.isArray(input.events) || input.events.length === 0) {
+      throw new Error('events deve ser um array com pelo menos um item');
+    }
+
+    const context = safeJson(input.context);
+    const events = input.events.slice(0, MAX_EVENTS_PER_REQUEST).map((event, index) => {
+      const metadata = safeJson(event.metadata);
+      const element = event.element ?? {};
+      const elementMetadata = {
+        selector: truncateText(element.selector ?? metadata['selector'], 256),
+        text: truncateText(element.text ?? metadata['text'], MAX_ELEMENT_TEXT_LENGTH),
+        tag: truncateText(element.tag ?? metadata['tag'], 64).toLowerCase(),
+      };
+
+      Object.entries(elementMetadata).forEach(([key, value]) => {
+        if (value) metadata[key] = value;
+      });
+
+      return {
+        eventId: buildEventId(event, index),
+        type: normalizeEventType(event.type ?? event.event_type),
+        name: event.name ? truncateText(event.name, 128) : undefined,
+        pageId: truncateText(event.pageId ?? event.page_id ?? event.path ?? event.url, 256),
+        url: truncateText(event.url, 2048),
+        path: truncateText(event.path, 1024),
+        title: truncateText(event.title ?? '', 256),
+        occurredAt: truncateText(event.occurredAt ?? event.occurred_at ?? new Date().toISOString(), 64),
+        metadata,
+        context: safeJson(event.context),
+      };
+    });
+
+    return {
+      siteKey,
+      visitorId,
+      sessionId,
+      userIdentifier,
+      sentAt,
+      context,
+      events,
+      originalEventCount: input.events.length,
+    };
+  }
+
+  private validateEvent(event: NormalizedSdkEvent) {
     if (!event.eventId) throw new Error('eventId e obrigatorio');
     if (!event.type) throw new Error('type e obrigatorio');
     if (!event.pageId) throw new Error('pageId e obrigatorio');
@@ -213,6 +391,20 @@ export class SdkService {
     if (!event.path) throw new Error('path e obrigatorio');
     if (!event.title && event.title !== '') throw new Error('title e obrigatorio');
     if (!event.occurredAt) throw new Error('occurredAt e obrigatorio');
+  }
+
+  private async upsertVisitor(siteId: string, siteKey: string, visitorId: string | null) {
+    if (!visitorId) return;
+
+    await pg.query(
+      `
+        INSERT INTO visitors (site_id, site_key, visitor_id, first_seen_at, last_seen_at)
+        VALUES ($1, $2, $3, NOW(), NOW())
+        ON CONFLICT (site_id, visitor_id)
+        DO UPDATE SET last_seen_at = NOW(), site_key = EXCLUDED.site_key
+      `,
+      [siteId, siteKey, visitorId],
+    );
   }
 
   private async upsertSession(
@@ -250,11 +442,92 @@ export class SdkService {
     );
   }
 
+  private async upsertTenantSession(siteId: string, payload: NormalizedPayload) {
+    const firstEvent = payload.events[0];
+    await pg.query(
+      `
+        INSERT INTO sessions (
+          site_id,
+          visitor_id,
+          session_id,
+          started_at,
+          landing_path,
+          user_agent,
+          referrer
+        )
+        VALUES ($1, $2, $3, $4::timestamptz, $5, $6, $7)
+        ON CONFLICT (site_id, session_id)
+        DO UPDATE SET
+          visitor_id = COALESCE(EXCLUDED.visitor_id, sessions.visitor_id),
+          ended_at = NOW(),
+          exit_path = COALESCE(EXCLUDED.landing_path, sessions.exit_path)
+      `,
+      [
+        siteId,
+        payload.visitorId,
+        payload.sessionId,
+        firstEvent?.occurredAt ?? payload.sentAt,
+        firstEvent?.path ?? null,
+        truncateText(payload.context['userAgent'], 512) || null,
+        truncateText(payload.context['referrer'], 2048) || null,
+      ],
+    );
+  }
+
+  private async insertRawEvent(
+    siteId: string,
+    siteKey: string,
+    sessionId: string,
+    visitorId: string | null,
+    event: NormalizedSdkEvent,
+    context: Record<string, unknown>,
+  ) {
+    await pg.query(
+      `
+        INSERT INTO sdk_events_raw (
+          site_id,
+          site_key,
+          event_id,
+          visitor_id,
+          session_id,
+          event_type,
+          path,
+          url,
+          element_selector,
+          element_text,
+          element_tag,
+          metadata,
+          context,
+          occurred_at,
+          received_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14::timestamptz, NOW())
+        ON CONFLICT (event_id) DO NOTHING
+      `,
+      [
+        siteId,
+        siteKey,
+        event.eventId,
+        visitorId,
+        sessionId,
+        event.type,
+        event.path,
+        event.url,
+        event.metadata['selector'] ?? null,
+        event.metadata['text'] ?? null,
+        event.metadata['tag'] ?? null,
+        JSON.stringify(event.metadata),
+        JSON.stringify(context),
+        event.occurredAt,
+      ],
+    );
+  }
+
   private async insertEvent(
     siteKey: string,
     sessionId: string,
     visitorId: string | null,
-    event: SdkEvent,
+    event: NormalizedSdkEvent,
     metadata: Record<string, unknown>,
     context: Record<string, unknown>,
   ) {
@@ -300,7 +573,7 @@ export class SdkService {
     siteKey: string,
     sessionId: string,
     visitorId: string | null,
-    event: SdkEvent,
+    event: NormalizedSdkEvent,
     metadata: Record<string, unknown>,
   ) {
     if (event.type === 'page_view' || event.type === 'route_change') {

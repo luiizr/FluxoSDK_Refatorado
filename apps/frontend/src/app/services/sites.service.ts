@@ -7,6 +7,7 @@ export type Site = {
   ownerEmail?: string;
   name: string;
   domain: string;
+  allowedOrigins?: string[];
   active: boolean;
   siteKey: string;
   created_at: string;
@@ -33,7 +34,7 @@ export class SitesService {
     return json.data as Site[];
   }
 
-  async createSite(name: string, domain: string): Promise<Site> {
+  async createSite(name: string, domain: string, allowedOrigins: string[] = []): Promise<Site> {
     if (!this.userId) throw new Error('Não autenticado');
 
     const response = await fetch(`${this.backendUrl}/api/sites`, {
@@ -42,7 +43,7 @@ export class SitesService {
         'Content-Type': 'application/json',
         'x-user-id': this.userId
       },
-      body: JSON.stringify({ name, domain }),
+      body: JSON.stringify({ name, domain, allowedOrigins }),
     });
 
     if (!response.ok) {
