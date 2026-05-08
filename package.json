@@ -17,6 +17,7 @@
     "@angular/compiler-cli": "~21.2.0",
     "@angular/language-service": "~21.2.0",
     "@eslint/js": "^9.8.0",
+    "@noble/hashes": "2.2.0",
     "@nx/angular": "^22.6.4",
     "@nx/devkit": "22.6.4",
     "@nx/eslint": "22.6.4",
@@ -58,7 +59,8 @@
     "tslib": "^2.3.0",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.40.0",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "yaml": "2.8.4"
   },
   "dependencies": {
     "@angular/common": "~21.2.0",

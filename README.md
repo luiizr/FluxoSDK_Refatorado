@@ -54,6 +54,8 @@ Ou individualmente via Nx:
 npx nx serve backend
 npx nx serve frontend
 npx nx serve example-client
+```
+
 ## 🏗️ Estrutura do Projeto
 
 ```text
