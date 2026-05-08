@@ -6,11 +6,11 @@ export class SitesController {
 
   createSite = async (request: Request, response: Response) => {
     try {
-      const { name, domain } = request.body;
+      const { name, domain, allowedOrigins } = request.body;
       const userId = request.headers['x-user-id'] as string;
       if (!userId) return response.status(401).json({ ok: false, message: 'Usuário não autenticado' });
 
-      const site = await this.sitesService.registerSite(name, domain, userId);
+      const site = await this.sitesService.registerSite(name, domain, userId, allowedOrigins);
 
       return response.status(201).json({
         ok: true,

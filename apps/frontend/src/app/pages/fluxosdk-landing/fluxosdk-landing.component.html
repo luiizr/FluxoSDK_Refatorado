@@ -1,4 +1,14 @@
 <main class="landing-shell">
+  <div class="stars-container">
+    <div class="glow-blob b1"></div>
+    <div class="glow-blob b2"></div>
+
+    <svg class="star-svg" style="top: 15%; left: 10%; --duration: 4s;" width="4" height="4" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5"/></svg>
+    <svg class="star-svg" style="top: 35%; left: 85%; --duration: 6s;" width="3" height="3" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5"/></svg>
+    <svg class="star-svg" style="top: 65%; left: 20%; --duration: 5s;" width="5" height="5" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5"/></svg>
+    <svg class="star-svg" style="top: 80%; left: 70%; --duration: 7s;" width="2" height="2" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5"/></svg>
+  </div>
+
   <header class="topbar">
     <div class="topbar-container">
       <a class="brand" href="/">
@@ -9,32 +19,32 @@
       <nav class="topnav">
         <a href="#dor">O problema</a>
         <a href="#solucao">A solução</a>
+        <a href="#precos">Preços</a>
         <a href="#funciona">Instalação</a>
       </nav>
 
       <div class="top-actions">
         <a class="ghost-link" href="/login">Entrar</a>
-        <a class="button button-primary" href="/register">Parar de perder dados</a>
+        <a class="button button-primary" href="/register">Começar agora</a>
       </div>
     </div>
   </header>
 
-  <section class="hero">
-    <div class="hero-content">
+  <section class="container hero">
+    <div class="hero-content reveal-on-scroll">
       <p class="eyebrow">Pare de voar no escuro</p>
       <h1>Seus usuários estão abandonando o sistema e você não sabe o porquê.</h1>
       <p class="lead">
-        Google Analytics é complexo demais. Logs de servidor não contam a história toda. 
-        Enquanto você tenta decifrar relatórios, erros silenciosos estão matando sua conversão.
+        Google Analytics é complexo demais. Erros silenciosos estão matando sua conversão enquanto você tenta decifrar relatórios.
       </p>
 
       <div class="hero-actions">
-        <a class="button button-primary" href="/register">Ver meus eventos agora</a>
-        <a class="button button-secondary" href="#dor">Por que mudar?</a>
+        <a class="button button-primary large" href="/register">Ver meus eventos agora</a>
+        <a class="button button-secondary large" href="#dor">Saber mais</a>
       </div>
     </div>
 
-    <div class="product-preview-container" id="solucao">
+    <div class="product-preview-container reveal-on-scroll" id="solucao">
       <div class="browser-mockup">
         <div class="browser-header">
           <div class="dots"><span></span><span></span><span></span></div>
@@ -57,7 +67,7 @@
           
           <main class="mock-main">
             <header class="mock-topbar">
-              <div class="mock-site-select">Produção (app.exemplo.com)</div>
+              <div class="mock-site-select" (click)="toggleSite()">{{ activeSite }}</div>
               <div class="mock-user">
                 <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User" />
               </div>
@@ -65,39 +75,39 @@
             
             <div class="mock-content">
               <div class="mock-header-row">
-                <h2>Clareza instantânea</h2>
+                <h2>Overview Geral</h2>
                 <div class="mock-badge">Ao vivo</div>
               </div>
               
               <div class="mock-stats-grid">
                 <div class="mock-stat-card primary">
                   <span class="label">Conversão</span>
-                  <strong>+24%</strong>
+                  <strong>+{{ conversionRate | number:'1.1-1' }}%</strong>
                 </div>
                 <div class="mock-stat-card">
                   <span class="label">Rage Clicks</span>
-                  <strong style="color: #ef4444">12</strong>
+                  <strong [style.color]="rageClicks > 10 ? '#ef4444' : '#111827'">{{ rageClicks }}</strong>
                 </div>
                 <div class="mock-stat-card">
                   <span class="label">Dead Clicks</span>
-                  <strong style="color: #f59e0b">8</strong>
+                  <strong style="color: #f59e0b">{{ deadClicks }}</strong>
                 </div>
                 <div class="mock-stat-card">
                   <span class="label">Erros JS</span>
-                  <strong style="color: #dc2626">4</strong>
+                  <strong style="color: #dc2626">{{ jsErrors }}</strong>
                 </div>
               </div>
               
               <div class="mock-chart-container">
                 <div class="chart-header">
-                  <span>Recuperação de usuários</span>
-                  <small>Eventos problemáticos detectados</small>
+                  <span>Fluxo de Recuperação</span>
+                  <small>Eventos críticos detectados</small>
                 </div>
                 <div class="mock-bars">
                   <div class="bar" style="height: 30%"></div>
                   <div class="bar" style="height: 40%"></div>
                   <div class="bar" style="height: 25%"></div>
-                  <div class="bar highlight" style="height: 90%; background: #ef4444"></div>
+                  <div class="bar highlight" [style.height.%]="80 + (conversionRate)" style="background: #10b981"></div>
                   <div class="bar" style="height: 50%"></div>
                   <div class="bar" style="height: 40%"></div>
                   <div class="bar" style="height: 30%"></div>
@@ -108,8 +118,8 @@
           </main>
 
           <div class="real-cursor">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5.65376 12.3822L15.7762 16.4856C17.4577 17.1677 19.1454 15.4797 18.4632 13.7981L14.3601 3.67613C13.5693 1.72239 10.7985 1.74716 10.043 3.71434L8.14041 8.66874C7.94997 9.16462 7.56272 9.55181 7.06684 9.74223L2.11244 11.6449C0.145262 12.4004 0.170029 15.1712 2.12377 15.9619L5.65376 12.3822Z" fill="white" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
+            <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+              <path d="M7.5 4.5L21.5 13.5L14.5 15.5L18.5 22.5L15.5 24.5L11.5 17.5L7.5 21.5V4.5Z" fill="white" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
             </svg>
           </div>
         </div>
@@ -117,90 +127,147 @@
     </div>
   </section>
 
-  <section class="section pain-section" id="dor">
-    <div class="container">
-      <div class="section-header">
-        <p class="eyebrow">A dura realidade</p>
-        <h2>O "Analytics Tradicional" está deixando você cego.</h2>
-      </div>
+  <section class="container section" id="dor">
+    <div class="section-header reveal-on-scroll">
+      <p class="eyebrow">A dura realidade</p>
+      <h2>O Analytics Tradicional está deixando você cego.</h2>
+      <p>A maioria das ferramentas diz o que aconteceu, mas nunca o porquê.</p>
+    </div>
 
-      <div class="pain-grid">
-        <article class="pain-card">
-          <div class="pain-icon">✕</div>
-          <h3>Complexidade Tóxica</h3>
-          <p>Você precisa de um PhD para tirar um relatório simples no GA4. Seus dados estão lá, mas você não consegue usá-los.</p>
-        </article>
-        
-        <article class="pain-card">
-          <div class="pain-icon">✕</div>
-          <h3>O "Clique Fantasma"</h3>
-          <p>O usuário clica 10 vezes em um botão quebrado, se irrita e vai embora. Seus logs dizem "200 OK", mas seu produto faliu.</p>
-        </article>
-        
-        <article class="pain-card">
-          <div class="pain-icon">✕</div>
-          <h3>Scripts Pesados</h3>
-          <p>Ferramentas de analytics pesadas matam seu Core Web Vitals e irritam o Google. Performance é conversão.</p>
-        </article>
+    <div class="pain-grid">
+      <article class="pain-card reveal-on-scroll">
+        <div class="pain-icon">✕</div>
+        <h3>Complexidade</h3>
+        <p>Dados que você não consegue usar para tomar decisões rápidas.</p>
+      </article>
+      
+      <article class="pain-card reveal-on-scroll" style="transition-delay: 0.1s">
+        <div class="pain-icon">✕</div>
+        <h3>Cliques Fantasmas</h3>
+        <p>Usuários frustrados clicando em elementos quebrados sem você saber.</p>
+      </article>
+      
+      <article class="pain-card reveal-on-scroll" style="transition-delay: 0.2s">
+        <div class="pain-icon">✕</div>
+        <h3>Silêncio Fatal</h3>
+        <p>Erros de JS no checkout que matam suas vendas silenciosamente.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="container section" id="solucao-detalhe">
+    <div class="features-split">
+      <div class="feature-image reveal-on-scroll">
+        <div class="abstract-visual">
+          <div class="floating-chip c1">Rage Click <span>Detected</span></div>
+          <div class="floating-chip c2">Dead Click <span>Fixed</span></div>
+          <div class="floating-chip c3">UX Score <span>98%</span></div>
+        </div>
+      </div>
+      <div class="feature-text reveal-on-scroll">
+        <p class="eyebrow">Nossa Abordagem</p>
+        <h2>Foco total na experiência real.</h2>
+        <p>Analisamos o comportamento humano frustrado para você agir rápido.</p>
+        <ul class="check-list">
+          <li><strong>Inteligência de Clique:</strong> Detecte raiva ou falta de ação.</li>
+          <li><strong>Zero Configuração:</strong> Instale e comece a mapear na hora.</li>
+          <li><strong>Privacidade:</strong> Sem cookies invasivos.</li>
+        </ul>
       </div>
     </div>
   </section>
 
-  <section class="section" id="funciona">
-    <div class="container">
-      <div class="section-header">
-        <p class="eyebrow">A cura instantânea</p>
-        <h2>Simplicidade que gera lucro.</h2>
+  <section class="container section" id="precos">
+    <div class="section-header reveal-on-scroll">
+      <p class="eyebrow">Planos</p>
+      <h2>Planos simples para crescer.</h2>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="pricing-card reveal-on-scroll">
+        <div class="p-header">
+          <h3>Starter</h3>
+          <div class="price">R$ 0</div>
+        </div>
+        <ul class="p-features">
+          <li>Até 5.000 eventos/mês</li>
+          <li>Rage Click Detection</li>
+          <li>1 site incluído</li>
+        </ul>
+        <a href="/register" class="button button-secondary">Começar Grátis</a>
       </div>
 
-      <div class="install-grid">
-        <div class="install-text">
-          <p>
-            O FluxoSDK elimina o ruído. Nós focamos apenas no que importa: por que o usuário não converteu? 
-            Identifique gargalos e erros em tempo real com zero configuração complexa.
-          </p>
-          <ul class="feature-list">
-            <li><span>✓</span> Identifique Rage Clicks na hora</li>
-            <li><span>✓</span> Capture erros JS silenciosos</li>
-            <li><span>✓</span> Sem cookies, 100% focado em UX</li>
-            <li><span>✓</span> Dashboard que qualquer um entende</li>
-          </ul>
+      <div class="pricing-card featured reveal-on-scroll" style="transition-delay: 0.1s">
+        <div class="p-badge">Popular</div>
+        <div class="p-header">
+          <h3>Pro</h3>
+          <div class="price">R$ 149</div>
         </div>
-        <div class="install-code">
-          <pre><code>&lt;script src="https://cdn.fluxosdk.com/sdk.js"&gt;&lt;/script&gt;
-&lt;script&gt;
-  FluxoSDK.init({{ '{' }}
-    siteKey: 'flx_live_...2kq',
-    environment: 'production'
-  {{ '}' }});
+        <ul class="p-features">
+          <li>Até 100.000 eventos/mês</li>
+          <li>Análise de Erros JS</li>
+          <li>Sites Ilimitados</li>
+        </ul>
+        <a href="/register" class="button button-primary">Garantir Pro</a>
+      </div>
 
-  FluxoSDK.track('page_view');
-&lt;/script&gt;</code></pre>
+      <div class="pricing-card reveal-on-scroll" style="transition-delay: 0.2s">
+        <div class="p-header">
+          <h3>Enterprise</h3>
+          <div class="price">Custom</div>
         </div>
+        <ul class="p-features">
+          <li>Eventos Ilimitados</li>
+          <li>SLA de 99.9%</li>
+          <li>Gerente de Conta</li>
+        </ul>
+        <a href="/contact" class="button button-secondary">Falar com Vendas</a>
       </div>
     </div>
   </section>
 
-  <section class="final-cta">
-    <div class="container">
+  <section class="container final-cta reveal-on-scroll">
+    <div class="cta-inner">
       <h2>Chega de perder usuários por falta de visão.</h2>
-      <p>Instale em 2 minutos e descubra o que realmente está acontecendo no seu site.</p>
-      <div class="cta-buttons">
-        <a class="button button-primary large" href="/register">Recuperar minha conversão agora</a>
+      <p>Otimize sua conversão hoje mesmo. Instale o FluxoSDK em menos de 2 minutos e comece a ver onde seus usuários estão travando.</p>
+      <div class="cta-benefits">
+        <span>✓ Setup Instantâneo</span>
+        <span>✓ Dashboard Intuitivo</span>
+        <span>✓ Focado em Privacidade</span>
       </div>
+      <a class="button button-primary large" href="/register">Recuperar minha conversão agora</a>
     </div>
   </section>
 
   <footer class="footer">
-    <div class="container">
-      <div class="footer-bottom">
-        <p>&copy; 2026 FluxoSDK. Todos os direitos reservados.</p>
-        <div class="footer-links">
-          <a href="#">Privacidade</a>
-          <a href="#">Termos</a>
-          <a href="https://github.com/fluxosdk">Github</a>
-        </div>
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="/">
+          <img class="logo" src="/Fotoram.io.png" alt="FluxoSDK Logo" />
+          <span>FluxoSDK</span>
+        </a>
+        <p>A ferramenta de analytics feita para quem não tem tempo a perder com complexidade.</p>
       </div>
+      <div class="footer-nav">
+        <h4>Produto</h4>
+        <a href="#dor">Problema</a>
+        <a href="#solucao">Dashboard</a>
+        <a href="#precos">Planos</a>
+      </div>
+      <div class="footer-nav">
+        <h4>Legal</h4>
+        <a href="#">Privacidade</a>
+        <a href="#">Termos de Uso</a>
+        <a href="#">Cookies</a>
+      </div>
+      <div class="footer-nav">
+        <h4>Suporte</h4>
+        <a href="https://github.com/fluxosdk">Github</a>
+        <a href="mailto:contato@fluxosdk.com">Contato</a>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>&copy; 2026 FluxoSDK. Todos os direitos reservados.</p>
     </div>
   </footer>
 </main>

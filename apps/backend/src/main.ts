@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { Client } from 'pg';
 import { routes } from './routes';
+import { createCorsMiddleware } from './middleware/cors';
 
 export const pg = new Client({
   host: process.env.BD_HOST,
@@ -17,18 +18,7 @@ export const pg = new Client({
 
 const app = express();
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  next();
-});
-
+app.use(createCorsMiddleware(pg));
 app.use(express.json({ limit: '256kb' }));
 app.use((req, _res, next) => {
   console.log(`[BACKEND_TRAFFIC] ${req.method} ${req.url}`);

@@ -21,6 +21,10 @@
             <span class="icon">◷</span>
             Sessões
           </a>
+          <a href="#" [class.active]="activeTab() === 'kpis'" (click)="setTab('kpis', $event)">
+            <span class="icon">#</span>
+            KPIs
+          </a>
           @if (currentUser.isRoot) {
             <a href="#" [class.active]="activeTab() === 'admin'" (click)="setTab('admin', $event)">
               <span class="icon">◎</span>
@@ -308,6 +312,177 @@
           </div>
         </section>
       </div>
+    }
+
+    @if (selectedSiteKey() && activeTab() === 'kpis') {
+      <div class="header-title-area">
+        <div class="greeting">
+          <h1>KPIs configuraveis</h1>
+          @if (selectedSite(); as site) {
+            <p>{{ site.domain }} · metric definitions, KPIs e layout persistente</p>
+          }
+        </div>
+        <div class="toolbar-actions">
+          <button class="action-btn secondary" [disabled]="isSavingKpi()" (click)="saveCurrentLayout()">
+            Salvar layout
+          </button>
+        </div>
+      </div>
+
+      <div class="builder-grid">
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>Metric Definition</h3>
+          </header>
+          <form class="builder-form" (submit)="createMetricDefinition($event)">
+            <label>
+              Nome
+              <input [ngModel]="newMetricName()" name="metricName" (ngModelChange)="newMetricName.set($event)" />
+            </label>
+            <label>
+              Source
+              <select [ngModel]="newMetricSource()" name="metricSource" (ngModelChange)="newMetricSource.set($event)">
+                <option value="events">events</option>
+                <option value="sessions">sessions</option>
+                <option value="detected_intents">detected_intents</option>
+                <option value="metric_aggregates">metric_aggregates</option>
+              </select>
+            </label>
+            <label>
+              Aggregation
+              <select
+                [ngModel]="newMetricAggregation()"
+                name="metricAggregation"
+                (ngModelChange)="newMetricAggregation.set($event)"
+              >
+                <option value="count">count</option>
+                <option value="sum">sum</option>
+                <option value="avg">avg</option>
+                <option value="min">min</option>
+                <option value="max">max</option>
+                <option value="unique_count">unique_count</option>
+              </select>
+            </label>
+            <label>
+              Field
+              <input
+                placeholder="Ex.: score, value, visitor_id"
+                [ngModel]="newMetricField()"
+                name="metricField"
+                (ngModelChange)="newMetricField.set($event)"
+              />
+            </label>
+            <label>
+              Event type
+              <input
+                placeholder="Opcional para source events"
+                [ngModel]="newMetricEventType()"
+                name="metricEventType"
+                (ngModelChange)="newMetricEventType.set($event)"
+              />
+            </label>
+            <label>
+              Group by
+              <input
+                placeholder="event_type, path"
+                [ngModel]="newMetricGroupBy()"
+                name="metricGroupBy"
+                (ngModelChange)="newMetricGroupBy.set($event)"
+              />
+            </label>
+            <button class="action-btn" [disabled]="isSavingKpi()">Criar metric</button>
+          </form>
+        </section>
+
+        <section class="card panel">
+          <header class="panel-header compact">
+            <h3>KPI</h3>
+          </header>
+          <form class="builder-form" (submit)="createKpi($event)">
+            <label>
+              Nome
+              <input [ngModel]="newKpiName()" name="kpiName" (ngModelChange)="newKpiName.set($event)" />
+            </label>
+            <label>
+              Metric
+              <select [ngModel]="selectedMetricId()" name="metricId" (ngModelChange)="selectedMetricId.set($event)">
+                @for (metric of metricDefinitions(); track trackByMetricId($index, metric)) {
+                  <option [value]="metric.id">{{ metric.name }} · {{ metric.source }}/{{ metric.aggregation }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              Chart
+              <select [ngModel]="newKpiChartType()" name="kpiChartType" (ngModelChange)="newKpiChartType.set($event)">
+                <option value="number">number</option>
+                <option value="line">line</option>
+                <option value="bar">bar</option>
+                <option value="pie">pie</option>
+                <option value="table">table</option>
+              </select>
+            </label>
+            <button class="action-btn" [disabled]="isSavingKpi() || metricDefinitions().length === 0">Criar KPI</button>
+          </form>
+
+          <div class="metric-list compact-list">
+            @for (metric of metricDefinitions(); track trackByMetricId($index, metric)) {
+              <div class="metric-row">
+                <div>
+                  <strong>{{ metric.name }}</strong>
+                  <span>{{ metric.source }} · {{ metric.aggregation }} · {{ metric.group_by?.join(', ') || 'sem grupo' }}</span>
+                </div>
+              </div>
+            } @empty {
+              <p class="empty-inline">Crie uma metric definition para habilitar KPIs.</p>
+            }
+          </div>
+        </section>
+      </div>
+
+      <section class="dashboard-grid-shell">
+        <div class="kpi-grid">
+          @for (kpi of kpis(); track trackByKpiId($index, kpi)) {
+            <article
+              class="kpi-widget"
+              [style.grid-column]="gridColumn(kpi.id)"
+              [style.grid-row]="gridRow(kpi.id)"
+            >
+              <div class="kpi-widget-header">
+                <div>
+                  <span>{{ kpi.chart_type }}</span>
+                  <h3>{{ kpi.name }}</h3>
+                </div>
+                <small>{{ kpi.metric_name || kpi.metric_id }}</small>
+              </div>
+
+              <div class="kpi-number">{{ kpiValue(kpi.id) }}</div>
+
+              @if (kpiGroups(kpi.id).length) {
+                <div class="kpi-bars">
+                  @for (group of kpiGroups(kpi.id).slice(0, 8); track group.key[0]?.value) {
+                    <div class="kpi-bar-row">
+                      <span>{{ group.key[0]?.value }}</span>
+                      <strong>{{ formatNumber(group.value) }}</strong>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <p class="empty-inline">Sem grupos para este KPI.</p>
+              }
+
+              <footer>
+                x {{ dashboardItemFor(kpi.id)?.pos_x ?? 0 }} · y {{ dashboardItemFor(kpi.id)?.pos_y ?? 0 }} ·
+                {{ dashboardItemFor(kpi.id)?.width ?? 4 }}x{{ dashboardItemFor(kpi.id)?.height ?? 3 }}
+              </footer>
+            </article>
+          } @empty {
+            <div class="empty-state compact-empty">
+              <h2>Nenhum KPI configurado</h2>
+              <p>Crie uma metric definition e associe um KPI para popular o grid.</p>
+            </div>
+          }
+        </div>
+      </section>
     }
 
     @if (selectedSiteKey() && activeTab() === 'logs') {
