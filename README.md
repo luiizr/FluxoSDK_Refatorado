@@ -1,96 +1,104 @@
-# Fluxosdk
+# FluxoSDK 🚀
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+<!-- [![CI](https://github.com/luiizr/FluxoSDK_Refatorado/actions/workflows/ci.yml/badge.svg)](https://github.com/luiizr/FluxoSDK_Refatorado/actions/workflows/ci.yml) -->
+[![Nx](https://img.shields.io/badge/nx-monorepo-blue?style=flat-square)](https://nx.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+> **Nota:** Este projeto é fruto de um Trabalho de Conclusão de Curso (TCC) e encontra-se atualmente em fase de desenvolvimento.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+FluxoSDK é uma solução robusta de monitoramento comportamental e analytics, projetada para capturar, processar e visualizar interações de usuários em tempo real através de um SDK integrável.
 
-## Run tasks
+## 📌 Visão Geral
 
-To run tasks with Nx use:
+O ecossistema FluxoSDK é composto por três frentes principais:
+1.  **Backend (API):** Desenvolvido em Node.js com Express, responsável pelo processamento de eventos, gerenciamento de sessões e persistência de dados em PostgreSQL.
+2.  **Frontend (Dashboard):** Uma interface administrativa em Angular para visualização de métricas e gestão de sites monitorados.
+3.  **SDK (Client):** Script otimizado para ser embarcado em sites clientes, capturando eventos de forma leve e eficiente.
 
-```sh
-npx nx <target> <project-name>
+## 🛠️ Tecnologias Utilizadas
+
+- **Monorepo:** [Nx](https://nx.dev)
+- **Frontend:** [Angular 21](https://angular.io/)
+- **Backend:** [Node.js](https://nodejs.org/) & [Express](https://expressjs.com/)
+- **Banco de Dados:** [PostgreSQL](https://www.postgresql.org/)
+- **Testes:** [Jest](https://jestjs.io/) & [Playwright](https://playwright.dev/)
+- **Linter:** [ESLint](https://eslint.org/)
+- **Pipeline:** GitHub Actions
+
+## 🚀 Como Começar
+
+### Pré-requisitos
+- Node.js (v20 ou superior)
+- npm ou yarn
+- Docker (opcional, para o banco de dados)
+
+### Instalação
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/luiizr/FluxoSDK_Refatorado.git
+   ```
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
+
+
+### Desenvolvimento
+Para rodar todos os serviços simultaneamente em modo de desenvolvimento:
+```bash
+npm run dev
 ```
 
-For example:
+Ou individualmente via Nx:
+```bash
+npx nx serve backend
+npx nx serve frontend
+npx nx serve example-client
+## 🏗️ Estrutura do Projeto
 
-```sh
-npx nx build myproject
+```text
+apps/
+├── backend/        # API REST e lógica de negócios
+├── frontend/       # Dashboard administrativo (Angular)
+└── example-client/ # Exemplo de integração do SDK
+docs/               # Documentação detalhada do projeto (em desenvolvimento)
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+## ⚖️ LGPD e Privacidade
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+O **FluxoSDK** foi projetado com os princípios de *Privacy by Design* em mente, visando a conformidade com a **Lei Geral de Proteção de Dados (LGPD)**.
 
-## Add new projects
+-   **Anonimização:** Por padrão, a coleta de dados é focada em eventos comportamentais. Identificadores de usuários são tratados de forma segura.
+-   **Transparência:** O SDK permite que os sites integradores informem claramente quais eventos estão sendo monitorados.
+-   **Controle de Dados:** Estrutura preparada para suportar requisições de exclusão e portabilidade de dados capturados durante as sessões.
 
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
+## 📄 Documentação
 
-To install a new plugin you can use the `nx add` command. Here's an example of adding the React plugin:
-```sh
-npx nx add @nx/react
-```
+A documentação técnica detalhada, incluindo especificações da API, guias de integração do SDK e diagramas de arquitetura, está sendo centralizada na pasta:
 
-Use the plugin's generator to create new projects. For example, to create a new React app or library:
+👉 [**/docs**](./docs) *(Em desenvolvimento)*
 
-```sh
-# Generate an app
-npx nx g @nx/react:app demo
+---
 
-# Generate a library
-npx nx g @nx/react:lib some-lib
-```
+<!-- └── backend-e2e/    # Testes de ponta a ponta -->
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+<!-- ## 🧪 Testes e Qualidade
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+O projeto preza pela qualidade e consistência do código.
 
-## Set up CI!
+- **Linting:** `npx nx run-many -t lint`
+- **Unit Tests:** `npx nx run-many -t test`
+- **E2E Tests:** `npx nx run-many -t e2e` -->
+<!-- 
+## 📈 Roadmap
 
-### Step 1
+- [x] Arquitetura base com Nx Monorepo.
+- [x] Coleta básica de eventos (SDK -> Backend).
+- [x] Dashboard administrativo inicial.
+- [ ] Implementação de filtros avançados no Dashboard.
+- [ ] Otimização de performance para grandes volumes de dados.
+- [ ] Documentação completa da API. -->
 
-To connect to Nx Cloud, run the following command:
+---
 
-```sh
-npx nx connect
-```
-
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Desenvolvido por Luiz Roberto da Silva como parte do TCC em Análise e Desenvolvimento de Sistemas pelo Instituto Federal de Educação, Ciência e Tecnologia do Rio Grande do Norte (IFRN).
