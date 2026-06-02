@@ -1,32 +1,48 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router'; // Added RouterModule
-import { AuthService } from '../../services/auth.service';
+import { Router, RouterModule } from '@angular/router';
+import { AuthService, type UserPayload } from '../../services/auth.service';
 
 @Component({
   selector: 'app-auth',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule], // Added RouterModule here
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './auth.component.html',
-  styleUrl: './auth.component.scss', // We will extract SCSS soon
+  styleUrl: './auth.component.scss',
 })
 export class AuthComponent {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
   protected isRegistering = signal<boolean>(false);
+  protected registrationStep = signal<1 | 2>(1);
   protected isAuthLoading = signal<boolean>(false);
   protected authName = signal<string>('');
   protected authEmail = signal<string>('');
   protected authPassword = signal<string>('');
   protected authConfirmPassword = signal<string>('');
+  protected authAvatarPreview = signal<string>('');
+  protected authAvatarName = signal<string>('');
+  protected authAvatarError = signal<string>('');
+  protected authTwoFactor = signal<boolean>(false);
+  protected acceptTerms = signal<boolean>(false);
   protected errorMessage = signal<string>('');
 
-  validateForm(): boolean {
+  private buildUserPayload(): UserPayload {
+    return {
+      name: this.authName().trim(),
+      email: this.authEmail().trim(),
+      password: this.authPassword(),
+      twoFactor: this.authTwoFactor(),
+      urlPhoto: this.authAvatarPreview() || undefined,
+    };
+  }
+
+  validateBaseRegistration(): boolean {
     this.errorMessage.set('');
-    
-    if (this.isRegistering() && !this.authName()) {
+
+    if (!this.authName()) {
       this.errorMessage.set('Por favor, informe seu nome.');
       return false;
     }
@@ -47,55 +63,127 @@ export class AuthComponent {
       return false;
     }
 
-    if (this.isRegistering()) {
-      if (this.authPassword().length < 6) {
-        this.errorMessage.set('A senha deve ter no mínimo 6 caracteres.');
-        return false;
-      }
-      
-      if (this.authPassword() !== this.authConfirmPassword()) {
-        this.errorMessage.set('As senhas não coincidem.');
-        return false;
-      }
+    if (this.authPassword().length < 6) {
+      this.errorMessage.set('A senha deve ter no mínimo 6 caracteres.');
+      return false;
+    }
+
+    if (this.authPassword() !== this.authConfirmPassword()) {
+      this.errorMessage.set('As senhas não coincidem.');
+      return false;
     }
 
     return true;
   }
 
+  validateFinalRegistration(): boolean {
+    this.errorMessage.set('');
+
+    if (!this.acceptTerms()) {
+      this.errorMessage.set('Você precisa aceitar os termos para continuar.');
+      return false;
+    }
+
+    return true;
+  }
+
+  onPhotoSelected(event: Event) {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    this.authAvatarError.set('');
+
+    if (!file) {
+      this.authAvatarPreview.set('');
+      this.authAvatarName.set('');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      this.authAvatarPreview.set('');
+      this.authAvatarName.set('');
+      this.authAvatarError.set('Selecione um arquivo de imagem válido.');
+      if (input) input.value = '';
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      this.authAvatarPreview.set('');
+      this.authAvatarName.set('');
+      this.authAvatarError.set('Use uma imagem de até 2 MB.');
+      if (input) input.value = '';
+      return;
+    }
+
+    this.authAvatarName.set(file.name);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.authAvatarPreview.set(typeof reader.result === 'string' ? reader.result : '');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removePhoto() {
+    this.authAvatarPreview.set('');
+    this.authAvatarName.set('');
+    this.authAvatarError.set('');
+  }
+
+  goBackToStepOne() {
+    this.registrationStep.set(1);
+    this.errorMessage.set('');
+  }
+
   async authenticate(event: Event) {
     event.preventDefault();
-    if (!this.validateForm()) return;
+
+    this.errorMessage.set('');
+
+    if (this.isRegistering()) {
+      if (this.registrationStep() === 1) {
+        if (!this.validateBaseRegistration()) return;
+        this.registrationStep.set(2);
+        return;
+      }
+
+      if (!this.validateFinalRegistration()) return;
+    } else if (!this.validateLoginForm()) {
+      return;
+    }
 
     this.isAuthLoading.set(true);
-    this.errorMessage.set('');
     try {
       let user;
       if (this.isRegistering()) {
-        user = await this.authService.register(
-          this.authEmail(),
-          this.authPassword(),
-          this.authName()
-        );
+        const userPayload = this.buildUserPayload();
+        user = await this.authService.register(userPayload);
+        console.info('usuario criado:', user);
       } else {
-        user = await this.authService.login(
-          this.authEmail(),
-          this.authPassword()
-        );
+        const userPayload = this.buildUserPayload();
+        user = await this.authService.login(userPayload);
       }
 
       localStorage.setItem('fluxosdk_user_id', user.id);
       localStorage.setItem('fluxosdk_user_name', user.name || '');
       localStorage.setItem('fluxosdk_user_email', user.email);
       localStorage.setItem('fluxosdk_user_is_root', String(Boolean(user.is_root)));
-      // Se tivéssemos foto de perfil, is_root, etc, poderíamos salvar aqui também
+      localStorage.setItem('fluxosdk_user_two_factor', String(this.authTwoFactor()));
+      // if (this.authAvatarName()) {
+      //   localStorage.setItem('fluxosdk_user_avatar_name', this.authAvatarName());
+      // }
 
       // Limpa os campos
       this.authName.set('');
       this.authEmail.set('');
       this.authPassword.set('');
       this.authConfirmPassword.set('');
+      this.authAvatarPreview.set('');
+      this.authAvatarName.set('');
+      this.authAvatarError.set('');
+      this.authTwoFactor.set(false);
+      this.acceptTerms.set(false);
+      this.registrationStep.set(1);
 
-      // Redireciona para o dashboard central
       await this.router.navigate(['/dashboard']);
     } catch (error: any) {
       console.error(error);
@@ -115,5 +203,37 @@ export class AuthComponent {
     } finally {
       this.isAuthLoading.set(false);
     }
+  }
+
+  protected resetRegistrationFlow() {
+    this.registrationStep.set(1);
+    this.authAvatarPreview.set('');
+    this.authAvatarName.set('');
+    this.authAvatarError.set('');
+    this.authTwoFactor.set(false);
+    this.acceptTerms.set(false);
+    this.errorMessage.set('');
+  }
+
+  private validateLoginForm(): boolean {
+    this.errorMessage.set('');
+
+    if (!this.authEmail()) {
+      this.errorMessage.set('Por favor, informe seu e-mail.');
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(this.authEmail())) {
+      this.errorMessage.set('Por favor, informe um e-mail válido.');
+      return false;
+    }
+
+    if (!this.authPassword()) {
+      this.errorMessage.set('Por favor, informe sua senha.');
+      return false;
+    }
+
+    return true;
   }
 }

@@ -1,0 +1,53 @@
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: calc(100vh - 96px);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.page-title h1 {
+  margin: 0 0 6px;
+  font-size: 32px;
+  color: #111827;
+  letter-spacing: -0.03em;
+}
+
+.page-title p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 15px;
+}
+
+.page-card {
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid #f3f4f6;
+  background: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+}
+
+.page-card h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #111827;
+}
+
+.page-card p {
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+@media (max-width: 860px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

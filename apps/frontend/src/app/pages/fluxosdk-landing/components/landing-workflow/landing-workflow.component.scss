@@ -1,0 +1,160 @@
+:host {
+  display: block;
+}
+
+.workflow {
+  width: min(1160px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 86px 0;
+}
+
+.workflow__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1.1fr);
+  gap: 36px;
+  align-items: start;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--fsdk-primary-dark);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: 0;
+  color: var(--fsdk-ink);
+  font-size: 38px;
+  line-height: 1.16;
+  letter-spacing: 0;
+  font-weight: 900;
+}
+
+.workflow__copy > p {
+  margin: 18px 0 0;
+  color: var(--fsdk-muted);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.steps {
+  margin-top: 28px;
+  display: grid;
+  gap: 12px;
+}
+
+.step {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--fsdk-border);
+  border-radius: 8px;
+}
+
+.step span {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fsdk-primary-dark);
+  background: var(--fsdk-primary-soft);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.step h3 {
+  margin: 0;
+  color: var(--fsdk-ink);
+  font-size: 18px;
+}
+
+.step p {
+  margin: 6px 0 0;
+  color: var(--fsdk-muted);
+  line-height: 1.55;
+}
+
+.code-card {
+  overflow: hidden;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  box-shadow: var(--fsdk-shadow);
+}
+
+.code-card__bar {
+  min-height: 42px;
+  padding: 0 14px;
+  display: grid;
+  grid-template-columns: 10px 10px 10px 1fr;
+  gap: 8px;
+  align-items: center;
+  background: #111827;
+  border-bottom: 1px solid #1f2937;
+}
+
+.code-card__bar span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.code-card__bar span:first-child {
+  background: #ef4444;
+}
+
+.code-card__bar span:nth-child(2) {
+  background: #f59e0b;
+}
+
+.code-card__bar span:nth-child(3) {
+  background: #10b981;
+}
+
+.code-card__bar strong {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+pre {
+  margin: 0;
+  padding: 26px;
+  overflow-x: auto;
+}
+
+code {
+  color: #d1fae5;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+@media (max-width: 940px) {
+  .workflow__inner {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .workflow {
+    width: calc(100% - 24px);
+    padding: 62px 0;
+  }
+
+  h2 {
+    font-size: 31px;
+  }
+
+  .step {
+    grid-template-columns: 1fr;
+  }
+}

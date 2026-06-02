@@ -1,6 +1,5 @@
 import express from 'express';
 import * as path from 'path';
-import * as fs from 'fs';
 import { Client } from 'pg';
 import { routes } from './routes';
 import { createCorsMiddleware } from './middleware/cors';
@@ -25,15 +24,9 @@ app.use((req, _res, next) => {
   next();
 });
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
-app.use('/api', routes);
+app.use(routes);
 
 let pgConnected = false;
-
-async function runApplicationSchema() {
-  const schemaPath = path.join(__dirname, 'database', 'schema.sql');
-  const sql = fs.readFileSync(schemaPath, 'utf8');
-  await pg.query(sql);
-}
 
 export async function connectPostgres() {
   try {
@@ -53,13 +46,6 @@ export async function connectPostgres() {
     await pg.connect();
     pgConnected = true;
     console.log('Postgres: conectado');
-
-    try {
-      await runApplicationSchema();
-      console.log('Postgres: schema principal atualizado com sucesso.');
-    } catch (schemaErr) {
-      console.error('Postgres: aviso ao rodar schema principal', schemaErr);
-    }
   } catch (err) {
     pgConnected = false;
     console.error('Postgres: erro ao conectar', err);

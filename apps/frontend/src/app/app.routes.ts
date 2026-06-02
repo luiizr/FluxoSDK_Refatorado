@@ -1,18 +1,20 @@
 import { Route } from '@angular/router';
-import { LandingComponent } from './pages/landing/landing.component';
 import { AuthComponent } from './pages/auth/auth.component';
-import { DashboardComponent } from './pages/dashboard/dashboard.component';
-// import { FluxosdkLandingComponent } from './pages/fluxosdk-landing/fluxosdk-landing.component';
 import { authGuard, guestGuard } from './guards/auth.guard';
+
+import { DashboardComponent } from './pages/dashboard/dashboard.component';
+
+// import { DashboardComponent } from './pages/dashboard2/dashboard.component';
+import { OverviewComponent } from './pages/dashboard2/overview/overview.component';
+import { LogsComponent } from './pages/dashboard2/logs/logs.component';
+import { SessionsComponent } from './pages/dashboard2/sessions/sessions.component';
+import { KpisComponent } from './pages/dashboard2/kpis/kpis.component';
+import { SettingsComponent } from './pages/dashboard2/settings/settings.component';
+import { AdminComponent } from './pages/dashboard2/admin/admin.component';
 
 export const appRoutes: Route[] = [
   {
     path: '',
-    component: LandingComponent,
-    canActivate: [guestGuard],
-  },
-  {
-    path: 'auth',
     component: AuthComponent,
     canActivate: [guestGuard],
   },
@@ -20,6 +22,15 @@ export const appRoutes: Route[] = [
     path: 'dashboard',
     component: DashboardComponent,
     canActivate: [authGuard],
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'overview' },
+      { path: 'overview', component: OverviewComponent },
+      { path: 'logs', component: LogsComponent },
+      { path: 'sessions', component: SessionsComponent },
+      { path: 'kpis', component: KpisComponent },
+      { path: 'settings', component: SettingsComponent },
+      { path: 'admin', component: AdminComponent },
+    ],
   },
   {
     path: '**',

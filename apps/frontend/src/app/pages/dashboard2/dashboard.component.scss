@@ -1,0 +1,59 @@
+:host {
+  display: block;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+  background-color: #e2e8f0;
+}
+
+.main-content {
+  background-color: #ffffff;
+  margin: 16px 16px 16px 0;
+  border-radius: 32px;
+  padding: 32px 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  height: calc(100vh - 32px);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dashboard-view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.dashboard-view::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@media (max-width: 860px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .main-content {
+    margin: 0;
+    border-radius: 0;
+    height: auto;
+    min-height: 100vh;
+    padding: 22px;
+  }
+
+  .dashboard-view {
+    overflow: visible;
+  }
+}

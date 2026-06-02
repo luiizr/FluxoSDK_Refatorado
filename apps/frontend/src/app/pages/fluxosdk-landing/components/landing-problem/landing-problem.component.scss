@@ -1,0 +1,138 @@
+:host {
+  display: block;
+}
+
+.problem {
+  width: min(1160px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 82px 0;
+}
+
+.section-head {
+  max-width: 760px;
+  margin-bottom: 34px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--fsdk-primary-dark);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: 0;
+  color: var(--fsdk-ink);
+  font-size: 40px;
+  line-height: 1.12;
+  letter-spacing: 0;
+  font-weight: 900;
+}
+
+.section-head > p {
+  margin: 18px 0 0;
+  color: var(--fsdk-muted);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.problem__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.problem-card {
+  min-height: 236px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid var(--fsdk-border);
+  border-radius: 8px;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.problem-card span {
+  width: fit-content;
+  padding: 5px 8px;
+  color: #7f1d1d;
+  background: #fee2e2;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.problem-card h3 {
+  margin: 28px 0 10px;
+  color: var(--fsdk-ink);
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.problem-card p {
+  margin: 0;
+  color: var(--fsdk-muted);
+  line-height: 1.65;
+}
+
+.compare {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.compare > div {
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid var(--fsdk-border);
+  border-radius: 8px;
+}
+
+.compare__label {
+  display: inline-flex;
+  margin-bottom: 12px;
+  color: #7f1d1d;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.compare__label--good {
+  color: var(--fsdk-primary-dark);
+}
+
+.compare strong {
+  display: block;
+  color: var(--fsdk-ink);
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.compare p {
+  margin: 10px 0 0;
+  color: var(--fsdk-muted);
+  line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  .problem__grid,
+  .compare {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .problem {
+    width: calc(100% - 24px);
+    padding: 60px 0;
+  }
+
+  h2 {
+    font-size: 32px;
+  }
+}

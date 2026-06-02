@@ -1,0 +1,32 @@
+<header class="topbar">
+  <div class="topbar-sites">
+    <select
+      id="site-select"
+      [ngModel]="selectedSiteKey"
+      (ngModelChange)="onSiteChange($event)"
+      aria-label="Ambiente ativo"
+      class="site-select-top"
+    >
+      @for (site of sites; track site.id) {
+        <option [value]="site.siteKey">
+          {{ site.name }} ({{ site.domain }})
+        </option>
+      }
+    </select>
+  </div>
+
+  <div class="topbar-profile">
+    @if (currentUser.isRoot) {
+      <span class="role-badge">Admin</span>
+    }
+
+    <div class="user-profile">
+      <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="Avatar" />
+      <div class="user-info">
+        <strong>{{ currentUser.name }}</strong>
+        <span>{{ currentUser.email }}</span>
+      </div>
+    </div>
+  </div>
+</header>
+

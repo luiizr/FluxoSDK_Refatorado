@@ -2,7 +2,6 @@
   <div class="auth-panel auth-brand-panel">
     <div class="brand-content">
       <div class="logo">
-  <img class="brand-logo" src="/Fotoram.io.png" alt="Logo FluxoSDK" />
   <span>FluxoSDK</span>
       </div>
       <h1>Seu tracking inteligente.</h1>
@@ -27,41 +26,160 @@
   </div>
 
   <div class="auth-panel auth-form-panel">
-    <div class="form-wrapper">
-      <a routerLink="/" class="back-link" style="text-decoration: none; color: #6b7280; font-size: 14px; display: inline-block; margin-bottom: 40px;">&#x2190; Voltar para a Home</a>
+    <div
+      class="form-wrapper"
+      [class.register-wrapper]="isRegistering()"
+      [class.final-step-wrapper]="isRegistering() && registrationStep() === 2"
+    >
+      <a routerLink="/" class="back-link">&#x2190; Voltar para a Home</a>
       
       <div class="header-titles">
         <h2>{{ isRegistering() ? 'Crie sua conta' : 'Acesse o painel' }}</h2>
-        <p>{{ isRegistering() ? 'Comece a monitorar seus projetos agora mesmo.' : 'Bem-vindo de volta! Insira suas credenciais.' }}</p>
+        <p>
+          {{
+            isRegistering()
+              ? 'Primeiro, vamos coletar os dados básicos. Depois você confirma foto, 2FA e termos.'
+              : 'Bem-vindo de volta! Insira suas credenciais.'
+          }}
+        </p>
       </div>
 
       <form (submit)="authenticate($event)" class="auth-form">
-        <div class="input-group" *ngIf="isRegistering()">
-          <label for="authName">Nome completo</label>
-          <div class="input-icon-wrapper">
-            <input type="text" id="authName" placeholder="Seu nome" [required]="isRegistering()" [ngModel]="authName()" (ngModelChange)="authName.set($event)" name="name">
+        <div *ngIf="!isRegistering()">
+          <div class="input-group">
+            <label for="authEmail">E-mail corporativo</label>
+            <div class="input-icon-wrapper">
+              <input type="email" id="authEmail" placeholder="seu@email.com" required [ngModel]="authEmail()" (ngModelChange)="authEmail.set($event)" name="email">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="authPass">Senha</label>
+            <div class="input-icon-wrapper">
+              <input type="password" id="authPass" placeholder="••••••••" required [ngModel]="authPassword()" (ngModelChange)="authPassword.set($event)" name="password">
+            </div>
+          </div>
+
+          <button type="submit" class="submit-btn" [disabled]="isAuthLoading()">
+            {{ isAuthLoading() ? 'Processando...' : 'Entrar na Plataforma' }}
+          </button>
+        </div>
+
+        <div *ngIf="isRegistering() && registrationStep() === 1" class="registration-step compact-step">
+          <div class="step-header">
+            <span class="step-pill">Etapa 1 de 2</span>
+            <span class="step-hint">Dados de acesso</span>
+          </div>
+
+          <div class="compact-fields">
+            <div class="input-group">
+              <label for="authName">Nome completo</label>
+              <div class="input-icon-wrapper">
+                <input type="text" id="authName" placeholder="Seu nome" required [ngModel]="authName()" (ngModelChange)="authName.set($event)" name="name">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="authEmailRegister">E-mail corporativo</label>
+              <div class="input-icon-wrapper">
+                <input type="email" id="authEmailRegister" placeholder="seu@email.com" required [ngModel]="authEmail()" (ngModelChange)="authEmail.set($event)" name="emailRegister">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="authPassRegister">Senha</label>
+              <div class="input-icon-wrapper">
+                <input type="password" id="authPassRegister" placeholder="••••••••" required [ngModel]="authPassword()" (ngModelChange)="authPassword.set($event)" name="passwordRegister">
+              </div>
+              <small *ngIf="authPassword() && authPassword().length < 6" class="hint-text text-danger">A senha deve ter no mínimo 6 caracteres</small>
+            </div>
+
+            <div class="input-group">
+              <label for="authConfirmPass">Confirmar senha</label>
+              <div class="input-icon-wrapper">
+                <input type="password" id="authConfirmPass" placeholder="••••••••" required [ngModel]="authConfirmPassword()" (ngModelChange)="authConfirmPassword.set($event)" name="confirmPassword">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="submit-btn" [disabled]="isAuthLoading()">
+              {{ isAuthLoading() ? 'Processando...' : 'Continuar' }}
+            </button>
           </div>
         </div>
 
-        <div class="input-group">
-          <label for="authEmail">E-mail corporativo</label>
-          <div class="input-icon-wrapper">
-            <input type="email" id="authEmail" placeholder="seu@email.com" required [ngModel]="authEmail()" (ngModelChange)="authEmail.set($event)" name="email">
+        <div *ngIf="isRegistering() && registrationStep() === 2" class="registration-step final-step">
+          <div class="step-header">
+            <span class="step-pill">Etapa 2 de 2</span>
+            <span class="step-hint">Preferências e consentimento</span>
           </div>
-        </div>
 
-        <div class="input-group">
-          <label for="authPass">Senha</label>
-          <div class="input-icon-wrapper">
-            <input type="password" id="authPass" placeholder="••••••••" required [ngModel]="authPassword()" (ngModelChange)="authPassword.set($event)" name="password">
+          <div class="photo-card">
+            <div class="photo-control">
+              <label class="photo-upload" for="authAvatar" [class.has-image]="authAvatarPreview()">
+                <input type="file" id="authAvatar" accept="image/png,image/jpeg,image/webp,image/*" (change)="onPhotoSelected($event)" />
+                @if (authAvatarPreview()) {
+                  <img [src]="authAvatarPreview()" alt="Prévia da foto do usuário" />
+                } @else {
+                }
+              </label>
+            </div>
+
+            <div class="choice-copy">
+              <strong>Foto de perfil</strong>
+              <p>Opcional.</p>
+              <div class="photo-actions">
+                <label for="authAvatar" class="photo-action primary-action">{{ authAvatarPreview() ? 'Trocar imagem' : 'Selecionar imagem' }}</label>
+                @if (authAvatarPreview()) {
+                  <button type="button" class="photo-action danger-action" (click)="removePhoto()">Remover</button>
+                }
+                <span class="photo-meta">PNG, JPG ou WEBP até 2 MB</span>
+              </div>
+              @if (authAvatarName()) {
+                <small class="hint-text">{{ authAvatarName() }}</small>
+              }
+              @if (authAvatarError()) {
+                <small class="hint-text text-danger">{{ authAvatarError() }}</small>
+              }
+            </div>
           </div>
-          <small *ngIf="isRegistering() && authPassword() && authPassword().length < 6" class="hint-text text-danger">A senha deve ter no mínimo 6 caracteres</small>
-        </div>
 
-        <div class="input-group" *ngIf="isRegistering()">
-          <label for="authConfirmPass">Confirmar Senha</label>
-          <div class="input-icon-wrapper">
-            <input type="password" id="authConfirmPass" placeholder="••••••••" [required]="isRegistering()" [ngModel]="authConfirmPassword()" (ngModelChange)="authConfirmPassword.set($event)" name="confirmPassword">
+          <div class="terms-card">
+            <div class="terms-header">
+              <span class="terms-eyebrow">LGPD e transparência</span>
+              <h3>Confirmação de responsabilidade</h3>
+              <p>Antes de criar a conta, confirme que o uso do FluxoSDK será informado aos usuários observados.</p>
+            </div>
+
+            <div class="terms-body">
+              <div class="term-item">
+                <span class="term-marker">1</span>
+                <p>Você concorda com os termos de uso, política de privacidade e tratamento de dados pessoais do FluxoSDK.</p>
+              </div>
+              <div class="term-item">
+                <span class="term-marker">2</span>
+                <p>Você se compromete a avisar de forma clara que usuários dos sistemas monitorados poderão ter eventos, interações e métricas de uso coletados.</p>
+              </div>
+              <div class="term-item">
+                <span class="term-marker">3</span>
+                <p>Você usará a plataforma respeitando finalidade, transparência, retenção adequada e direitos previstos na LGPD.</p>
+              </div>
+            </div>
+
+            <label class="terms-acceptance" [class.accepted]="acceptTerms()">
+              <input type="checkbox" [ngModel]="acceptTerms()" (ngModelChange)="acceptTerms.set($event)" name="acceptTerms" />
+              <span>Li, entendi e aceito os termos, incluindo o dever de informar o monitoramento aos usuários observados.</span>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="secondary-btn" (click)="goBackToStepOne()" [disabled]="isAuthLoading()">
+              Voltar
+            </button>
+            <button type="submit" class="submit-btn" [disabled]="isAuthLoading() || !acceptTerms()">
+              {{ isAuthLoading() ? 'Processando...' : 'Cadastrar conta' }}
+            </button>
           </div>
         </div>
 
@@ -70,15 +188,16 @@
           <span>{{ errorMessage() }}</span>
         </div>
 
-        <button type="submit" class="submit-btn" [disabled]="isAuthLoading()">
-          {{ isAuthLoading() ? 'Processando...' : (isRegistering() ? 'Criar minha conta' : 'Entrar na Plataforma') }}
-        </button>
       </form>
 
       <div class="auth-footer">
         <p>
           {{ isRegistering() ? 'Já tem uma conta?' : 'Ainda não tem conta?' }}
-          <button type="button" class="switch-mode-btn" (click)="isRegistering.set(!isRegistering()); authEmail.set(''); authPassword.set(''); errorMessage.set('')">
+          <button
+            type="button"
+            class="switch-mode-btn"
+            (click)="isRegistering.set(!isRegistering()); resetRegistrationFlow(); authName.set(''); authEmail.set(''); authPassword.set(''); authConfirmPassword.set('')"
+          >
             {{ isRegistering() ? 'Fazer login' : 'Criar uma conta' }}
           </button>
         </p>

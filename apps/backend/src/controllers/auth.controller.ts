@@ -5,10 +5,10 @@ export class AuthController {
   private authService = new AuthService();
 
   register = async (request: Request, response: Response) => {
+    console.info("register:", request.body);
     try {
-      const { email, password, name } = request.body;
-      const user = await this.authService.register(email, password, name);
-
+      const { name, email, password, twoFactor, urlPhoto } = request.body;
+      const user = await this.authService.register(name, email, password, twoFactor, urlPhoto);
       return response.status(201).json({
         ok: true,
         message: 'Usuário registrado com sucesso',

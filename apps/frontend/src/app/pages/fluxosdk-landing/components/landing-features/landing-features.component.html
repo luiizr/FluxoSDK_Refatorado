@@ -1,0 +1,28 @@
+<section class="features" id="solucao">
+  <div class="features__inner">
+    <div class="section-head">
+      <p class="eyebrow">Sistema de produto</p>
+      <h2>Instale, enxergue, priorize: os sinais que faltam entre analytics e logs.</h2>
+      <p>
+        Cada recurso aproxima o time do comportamento real do usuario, sem
+        transformar investigacao de conversao em um projeto paralelo.
+      </p>
+    </div>
+
+    <div class="feature-grid">
+      @for (feature of features; track feature.title) {
+        <article
+          class="feature-card"
+          [class.feature-card--green]="feature.tone === 'green'"
+          [class.feature-card--blue]="feature.tone === 'blue'"
+          [class.feature-card--amber]="feature.tone === 'amber'"
+          [class.feature-card--violet]="feature.tone === 'violet'"
+        >
+          <span>{{ feature.badge }}</span>
+          <h3>{{ feature.title }}</h3>
+          <p>{{ feature.description }}</p>
+        </article>
+      }
+    </div>
+  </div>
+</section>

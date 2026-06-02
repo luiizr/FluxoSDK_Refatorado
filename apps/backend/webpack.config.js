@@ -15,7 +15,13 @@ module.exports = {
       compiler: 'tsc',
       main: './src/main.ts',
       tsConfig: './tsconfig.app.json',
-      assets: ['./src/assets', './src/database'],
+      assets: [
+        {
+          glob: '**/*',
+          input: './src/embed',
+          output: './assets',
+        },
+      ],
       optimization: false,
       outputHashing: 'none',
       generatePackageJson: true,

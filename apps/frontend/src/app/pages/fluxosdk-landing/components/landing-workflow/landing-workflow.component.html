@@ -1,0 +1,45 @@
+<section class="workflow" id="instalacao">
+  <div class="workflow__inner">
+    <div class="workflow__copy">
+      <p class="eyebrow">Instalacao</p>
+      <h2>Do primeiro evento ao primeiro insight no mesmo dia.</h2>
+      <p>
+        FluxoSDK segue uma arquitetura leve: um SDK JavaScript no cliente,
+        processamento no backend e um dashboard direto para acompanhar o fluxo.
+      </p>
+
+      <div class="steps">
+        @for (item of steps; track item.step) {
+          <article class="step">
+            <span>{{ item.step }}</span>
+            <div>
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+            </div>
+          </article>
+        }
+      </div>
+    </div>
+
+    <div class="code-card" aria-label="Exemplo de instalacao do FluxoSDK">
+      <div class="code-card__bar">
+        <span></span>
+        <span></span>
+        <span></span>
+        <strong>fluxosdk.ts</strong>
+      </div>
+      <pre><code>import &#123; FluxoSDK &#125; from '&#64;fluxosdk/client';
+
+FluxoSDK.init(&#123;
+  siteId: 'site_checkout',
+  capture: ['page_view', 'click', 'error'],
+  privacy: 'no-cookies',
+&#125;);
+
+FluxoSDK.track('checkout_started', &#123;
+  plan: 'pro',
+  source: 'pricing',
+&#125;);</code></pre>
+    </div>
+  </div>
+</section>

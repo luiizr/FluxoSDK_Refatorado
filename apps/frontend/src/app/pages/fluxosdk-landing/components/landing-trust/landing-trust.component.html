@@ -1,0 +1,13 @@
+<section class="trust" aria-label="Sinais monitorados pelo FluxoSDK">
+  <div class="trust__inner">
+    <p>Projetado para unir produto, engenharia e growth no mesmo diagnostico</p>
+    <div class="trust__grid">
+      @for (item of items; track item.label) {
+        <div class="trust__item">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+        </div>
+      }
+    </div>
+  </div>
+</section>

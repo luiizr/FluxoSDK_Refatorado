@@ -1,20 +1,23 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AdminService, type AdminOverview } from '../../services/admin.service';
+import { DashboardSidebarComponent } from './components/dashboard-sidebar/dashboard-sidebar.component';
+import { DashboardTopbarComponent } from './components/dashboard-topbar/dashboard-topbar.component';
 import {
-  SdkEventsService,
-  type DashboardItem,
-  type DashboardLayout,
-  type DashboardStats,
-  type Kpi,
-  type KpiResult,
-  type LiveEvent,
-  type MetricDefinition,
-  type SummaryStats,
-} from '../../services/sdk-events.service';
-import { SitesService, type Site } from '../../services/sites.service';
+  AdminOverview,
+  CurrentUser,
+  DashboardItem,
+  DashboardLayout,
+  DashboardStats,
+  DashboardTab,
+  Kpi,
+  KpiResult,
+  LiveEvent,
+  MetricDefinition,
+  Site,
+  SummaryStats,
+} from './dashboard.types';
 
 const EMPTY_SUMMARY: SummaryStats = {
   totalEvents: 0,
@@ -33,45 +36,190 @@ const EMPTY_SUMMARY: SummaryStats = {
   formConversionRate: 0,
 };
 
+const DEFAULT_SITE: Site = {
+  id: 'site-dashboard-demo',
+  name: 'Produção',
+  domain: 'app.fluxosdk.com',
+  siteKey: 'pk_demo_fluxosdk',
+  ownerEmail: 'usuario@fluxosdk.com',
+  active: true,
+};
+
+const DEFAULT_STATS: DashboardStats = {
+  rangeHours: 24,
+  summary: {
+    totalEvents: 18342,
+    pageViews: 12640,
+    uniqueVisitors: 2480,
+    sessions: 3101,
+    activeUsers: 54,
+    avgTimeSeconds: 84,
+    bounceRate: 28,
+    errors: 12,
+    deadClicks: 9,
+    rageClicks: 4,
+    formStarts: 188,
+    formSubmits: 121,
+    formAbandons: 67,
+    formConversionRate: 64,
+  },
+  topPages: [
+    { path: '/', title: 'Home', views: 5240, avgTimeSeconds: 92 },
+    { path: '/pricing', title: 'Pricing', views: 2130, avgTimeSeconds: 68 },
+    { path: '/checkout', title: 'Checkout', views: 1280, avgTimeSeconds: 54 },
+  ],
+  topClicks: [],
+  problemInteractions: [
+    { type: 'dead_click', selector: 'button#finalizar', text: 'Finalizar', path: '/checkout', total: 6 },
+    { type: 'rage_click', selector: 'div#form', text: 'Formulario', path: '/lead', total: 3 },
+  ],
+  formMetrics: [
+    { path: '/lead', formId: 'lead-form', starts: 48, submits: 29, abandons: 19, conversionRate: 60 },
+  ],
+  errors: [
+    { type: 'js_error', message: 'TypeError no checkout', path: '/checkout', total: 4, lastSeenAt: new Date().toISOString() },
+    { type: 'api_error', message: 'Gateway timeout', path: '/api/orders', total: 2, lastSeenAt: new Date().toISOString() },
+  ],
+  webVitals: {
+    lcp: { value: 1820, samples: 42 },
+    inp: { value: 112, samples: 42 },
+    cls: { value: 0.08, samples: 42 },
+    fcp: { value: 740, samples: 42 },
+  },
+  devices: [
+    { deviceType: 'desktop', visitors: 1540 },
+    { deviceType: 'mobile', visitors: 820 },
+    { deviceType: 'tablet', visitors: 120 },
+  ],
+  trafficSources: [
+    { source: 'direct', visitors: 1260, pageViews: 6020 },
+    { source: 'google', visitors: 820, pageViews: 5020 },
+    { source: 'linkedin', visitors: 240, pageViews: 1600 },
+  ],
+};
+
+const DEFAULT_ADMIN: AdminOverview = {
+  totals: {
+    users: 12,
+    sites: 5,
+    activeKeys: 5,
+    events24h: 18342,
+    activeSessions: 24,
+  },
+  users: [
+    { id: 'user-1', name: 'Usuario Demo', email: 'usuario@fluxosdk.com', is_root: true, is_active: true },
+    { id: 'user-2', name: 'Ana Souza', email: 'ana@fluxosdk.com', is_root: false, is_active: true },
+  ],
+  sites: [
+    { id: 'site-dashboard-demo', name: 'Produção', domain: 'app.fluxosdk.com', ownerEmail: 'usuario@fluxosdk.com', events: 16420 },
+    { id: 'site-2', name: 'Staging', domain: 'staging.fluxosdk.com', ownerEmail: 'ana@fluxosdk.com', events: 1922 },
+  ],
+};
+
+const DEFAULT_METRICS: MetricDefinition[] = [
+  {
+    id: 'metric-events-by-type',
+    name: 'Eventos por tipo',
+    source: 'events',
+    aggregation: 'count',
+    field: '',
+    event_type: null,
+    group_by: ['event_type'],
+  },
+];
+
+const DEFAULT_KPIS: Kpi[] = [
+  {
+    id: 'kpi-total-events',
+    name: 'Total de eventos',
+    metric_id: 'metric-events-by-type',
+    metric_name: 'Eventos por tipo',
+    chart_type: 'number',
+  },
+];
+
+const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
+  id: 'dashboard-demo',
+  items: [
+    {
+      id: 'dashboard-item-1',
+      kpi_id: 'kpi-total-events',
+      pos_x: 0,
+      pos_y: 0,
+      width: 4,
+      height: 3,
+    },
+  ],
+};
+
+const DEFAULT_KPI_RESULTS: Record<string, KpiResult> = {
+  'kpi-total-events': {
+    data: {
+      value: DEFAULT_STATS.summary.totalEvents,
+      groups: [
+        { key: [{ value: 'page_view' }], value: 12640 },
+        { key: [{ value: 'click' }], value: 3412 },
+        { key: [{ value: 'form_submit' }], value: 121 },
+      ],
+    },
+  },
+};
+
+const DEFAULT_LIVE_EVENTS: LiveEvent[] = [
+  {
+    event_id: 'evt-1',
+    event_type: 'page_view',
+    path: '/',
+    title: 'Home',
+    occurred_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+    metadata: { selector: 'body', text: 'Home' },
+  },
+  {
+    event_id: 'evt-2',
+    event_type: 'click',
+    path: '/pricing',
+    title: 'Pricing',
+    occurred_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    metadata: { selector: 'button#start', text: 'Comecar' },
+  },
+];
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DashboardSidebarComponent, DashboardTopbarComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  private readonly sdkEventsService = inject(SdkEventsService);
-  private readonly sitesService = inject(SitesService);
-  private readonly adminService = inject(AdminService);
   private readonly router = inject(Router);
+  private pollInterval?: ReturnType<typeof setInterval>;
 
-  protected currentUser = {
+  protected currentUser: CurrentUser = {
     name: 'Usuario',
     email: 'usuario@fluxosdk.com',
     isRoot: true,
   };
 
-  protected sdkLink = this.sdkEventsService.getSdkLink();
-  protected activeTab = signal<string>('overview');
+  protected sdkLink = 'http://localhost:3000/assets/embed.js';
+  protected activeTab = signal<DashboardTab>('overview');
   protected rangeHours = signal<number>(24);
-  private pollInterval?: ReturnType<typeof setInterval>;
 
-  protected sites = signal<Site[]>([]);
-  protected selectedSiteKey = signal<string>('');
+  protected sites = signal<Site[]>([DEFAULT_SITE]);
+  protected selectedSiteKey = signal<string>(DEFAULT_SITE.siteKey);
   protected newSiteName = signal<string>('');
   protected newSiteDomain = signal<string>('');
   protected isCreatingSite = signal<boolean>(false);
   protected isLoadingMetrics = signal<boolean>(false);
   protected dashboardError = signal<string>('');
 
-  protected liveEvents = signal<LiveEvent[]>([]);
-  protected stats = signal<DashboardStats | null>(null);
-  protected adminOverview = signal<AdminOverview | null>(null);
-  protected metricDefinitions = signal<MetricDefinition[]>([]);
-  protected kpis = signal<Kpi[]>([]);
-  protected kpiResults = signal<Record<string, KpiResult>>({});
-  protected dashboardLayout = signal<DashboardLayout | null>(null);
+  protected liveEvents = signal<LiveEvent[]>(DEFAULT_LIVE_EVENTS);
+  protected stats = signal<DashboardStats | null>(DEFAULT_STATS);
+  protected adminOverview = signal<AdminOverview | null>(DEFAULT_ADMIN);
+  protected metricDefinitions = signal<MetricDefinition[]>(DEFAULT_METRICS);
+  protected kpis = signal<Kpi[]>(DEFAULT_KPIS);
+  protected kpiResults = signal<Record<string, KpiResult>>(DEFAULT_KPI_RESULTS);
+  protected dashboardLayout = signal<DashboardLayout | null>(DEFAULT_DASHBOARD_LAYOUT);
 
   protected newMetricName = signal<string>('Eventos por tipo');
   protected newMetricSource = signal<string>('events');
@@ -79,14 +227,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   protected newMetricField = signal<string>('');
   protected newMetricEventType = signal<string>('');
   protected newMetricGroupBy = signal<string>('event_type');
-  protected selectedMetricId = signal<string>('');
+  protected selectedMetricId = signal<string>(DEFAULT_METRICS[0].id);
   protected newKpiName = signal<string>('KPI configuravel');
   protected newKpiChartType = signal<string>('number');
   protected isSavingKpi = signal<boolean>(false);
 
   async ngOnInit() {
     this.extractUserInfo();
-    await this.loadInitialData();
+    this.initializeLocalData();
+
+    if (this.pollInterval) clearInterval(this.pollInterval);
+    this.pollInterval = setInterval(() => {
+      if (this.activeTab() === 'admin' && this.currentUser.isRoot) {
+        this.ensureAdminOverview();
+      }
+    }, 8000);
   }
 
   ngOnDestroy() {
@@ -111,25 +266,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return `<script src="${this.sdkLink}" data-site-key="${this.selectedSiteKey()}" data-track-api-errors="true"></script>`;
   }
 
-  protected setTab(tab: string, event: Event) {
-    event.preventDefault();
+  protected setTab(tab: DashboardTab) {
     this.activeTab.set(tab);
     if (tab === 'admin' && this.currentUser.isRoot) {
-      void this.loadAdminOverview();
-    }
-    if (tab === 'kpis' && this.selectedSiteId()) {
-      void this.loadKpiData(this.selectedSiteId());
+      this.ensureAdminOverview();
     }
   }
 
   protected onSiteChanged() {
-    void this.fetchDashboardData();
+    if (!this.selectedSite()) {
+      const firstSite = this.sites()[0];
+      this.selectedSiteKey.set(firstSite?.siteKey ?? '');
+    }
   }
 
   protected onRangeChanged(value: string | number) {
     const nextRange = Number(value);
     this.rangeHours.set(Number.isFinite(nextRange) ? nextRange : 24);
-    void this.fetchDashboardData();
   }
 
   protected async copySnippet() {
@@ -234,32 +387,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
     localStorage.removeItem('fluxosdk_user_name');
     localStorage.removeItem('fluxosdk_user_email');
     localStorage.removeItem('fluxosdk_user_is_root');
-    this.sites.set([]);
-    this.selectedSiteKey.set('');
-    if (this.pollInterval) clearInterval(this.pollInterval);
+    this.resetLocalState();
     void this.router.navigate(['/']);
   }
 
   protected async deleteSite(id: string, siteKey: string) {
     if (!confirm('Tem certeza que deseja remover este site e todos seus dados coletados?')) return;
 
-    try {
-      await this.sitesService.deleteSite(id);
+    const updatedSites = this.sites().filter((site) => site.id !== id);
+    this.sites.set(updatedSites);
 
-      const updatedSites = this.sites().filter((site) => site.id !== id);
-      this.sites.set(updatedSites);
-
-      if (this.selectedSiteKey() === siteKey) {
-        this.selectedSiteKey.set(updatedSites.length ? updatedSites[0].siteKey : '');
-        await this.fetchDashboardData();
-      }
-
-      if (this.currentUser.isRoot) {
-        await this.loadAdminOverview();
-      }
-    } catch (error) {
-      alert(this.getErrorMessage(error));
+    if (this.selectedSiteKey() === siteKey) {
+      this.selectedSiteKey.set(updatedSites.length ? updatedSites[0].siteKey : '');
     }
+
+    if (!updatedSites.length) {
+      this.resetDashboardCollections();
+    }
+
+    this.ensureAdminOverview();
   }
 
   protected async registerSite(event: Event) {
@@ -268,13 +414,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.isCreatingSite.set(true);
     try {
-      await this.sitesService.createSite(this.newSiteName(), this.newSiteDomain());
-      await this.loadSites();
-      await this.fetchDashboardData();
+      const cleanDomain = this.newSiteDomain().replace(/^https?:\/\//, '').split('/')[0];
+      const siteKey = `pk_${cleanDomain.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'site'}_${Date.now()}`;
+      const newSite: Site = {
+        id: `site-${Date.now()}`,
+        name: this.newSiteName(),
+        domain: cleanDomain,
+        siteKey,
+        ownerEmail: this.currentUser.email,
+        active: true,
+      };
+
+      this.sites.set([newSite, ...this.sites()]);
+      this.selectedSiteKey.set(newSite.siteKey);
       this.newSiteName.set('');
       this.newSiteDomain.set('');
-    } catch (error) {
-      alert(this.getErrorMessage(error));
+      this.ensureAdminOverview();
     } finally {
       this.isCreatingSite.set(false);
     }
@@ -291,20 +446,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
         .split(',')
         .map((item) => item.trim())
         .filter(Boolean);
-      const metric = await this.sdkEventsService.createMetricDefinition(siteId, {
+      const metric: MetricDefinition = {
+        id: `metric-${Date.now()}`,
         name: this.newMetricName(),
         source: this.newMetricSource(),
         aggregation: this.newMetricAggregation(),
-        field: this.newMetricField() || undefined,
-        eventType: this.newMetricEventType() || undefined,
-        filters: [],
-        groupBy,
-      });
+        field: this.newMetricField() || null,
+        event_type: this.newMetricEventType() || null,
+        group_by: groupBy,
+      };
 
+      this.metricDefinitions.set([metric, ...this.metricDefinitions()]);
       this.selectedMetricId.set(metric.id);
-      await this.loadKpiData(siteId);
-    } catch (error) {
-      this.dashboardError.set(this.getErrorMessage(error));
     } finally {
       this.isSavingKpi.set(false);
     }
@@ -312,21 +465,64 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   protected async createKpi(event: Event) {
     event.preventDefault();
-    const siteId = this.selectedSiteId();
     const metricId = this.selectedMetricId() || this.metricDefinitions()[0]?.id;
-    if (!siteId || !metricId || !this.newKpiName()) return;
+    if (!metricId || !this.newKpiName()) return;
 
     this.isSavingKpi.set(true);
     try {
-      await this.sdkEventsService.createKpi(siteId, {
-        metricId,
+      const metric = this.metricDefinitions().find((item) => item.id === metricId);
+      const kpi: Kpi = {
+        id: `kpi-${Date.now()}`,
         name: this.newKpiName(),
-        chartType: this.newKpiChartType(),
-        settings: {},
+        metric_id: metricId,
+        metric_name: metric?.name ?? metricId,
+        chart_type: this.newKpiChartType(),
+      };
+
+      const nextKpis = [kpi, ...this.kpis()];
+      this.kpis.set(nextKpis);
+      this.kpiResults.set({
+        ...this.kpiResults(),
+        [kpi.id]: {
+          data: {
+            value: 0,
+            groups: [],
+          },
+        },
       });
-      await this.loadKpiData(siteId);
-    } catch (error) {
-      this.dashboardError.set(this.getErrorMessage(error));
+
+      const currentLayout = this.dashboardLayout();
+      const nextLayout: DashboardLayout = currentLayout
+        ? {
+            ...currentLayout,
+            items: [
+              ...currentLayout.items,
+              {
+                id: `dashboard-item-${Date.now()}`,
+                kpi_id: kpi.id,
+                pos_x: ((nextKpis.length - 1) % 3) * 4,
+                pos_y: Math.floor((nextKpis.length - 1) / 3) * 3,
+                width: 4,
+                height: 3,
+              },
+            ],
+          }
+        : {
+            id: 'dashboard-local',
+            items: [
+              {
+                id: `dashboard-item-${Date.now()}`,
+                kpi_id: kpi.id,
+                pos_x: 0,
+                pos_y: 0,
+                width: 4,
+                height: 3,
+              },
+            ],
+          };
+
+      this.dashboardLayout.set(nextLayout);
+      this.newKpiName.set('KPI configuravel');
     } finally {
       this.isSavingKpi.set(false);
     }
@@ -338,21 +534,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.isSavingKpi.set(true);
     try {
-      const items = this.kpis().map((kpi, index) => {
-        const current = this.dashboardItemFor(kpi.id);
-        return {
-          id: current?.id,
-          kpiId: kpi.id,
-          x: current?.pos_x ?? (index % 3) * 4,
-          y: current?.pos_y ?? Math.floor(index / 3) * 3,
-          width: current?.width ?? 4,
-          height: current?.height ?? 3,
-        };
+      this.dashboardLayout.set({
+        ...dashboard,
+        items: dashboard.items.map((item) => ({ ...item })),
       });
-      const updated = await this.sdkEventsService.saveDashboardItems(dashboard.id, items);
-      this.dashboardLayout.set(updated);
-    } catch (error) {
-      this.dashboardError.set(this.getErrorMessage(error));
     } finally {
       this.isSavingKpi.set(false);
     }
@@ -373,112 +558,61 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async loadInitialData() {
-    await this.loadSites();
-    await this.fetchDashboardData();
-
-    if (this.currentUser.isRoot) {
-      await this.loadAdminOverview();
+  private initializeLocalData() {
+    this.sites.set([DEFAULT_SITE, ...this.sites().filter((site) => site.id !== DEFAULT_SITE.id)]);
+    if (!this.selectedSiteKey()) {
+      this.selectedSiteKey.set(this.sites()[0]?.siteKey ?? '');
     }
 
-    if (this.pollInterval) clearInterval(this.pollInterval);
-    this.pollInterval = setInterval(() => {
-      void this.fetchDashboardData();
-      if (this.activeTab() === 'admin' && this.currentUser.isRoot) {
-        void this.loadAdminOverview();
-      }
-    }, 8000);
+    if (!this.currentUser.isRoot) {
+      this.adminOverview.set(null);
+    }
+
+    this.ensureAdminOverview();
   }
 
-  private async loadSites() {
-    try {
-      const siteList = await this.sitesService.listSites();
-      this.sites.set(siteList);
-      if (siteList.length > 0 && !this.selectedSiteKey()) {
-        this.selectedSiteKey.set(siteList[0].siteKey);
-      }
-    } catch (error) {
-      this.dashboardError.set(this.getErrorMessage(error));
+  private ensureAdminOverview() {
+    if (this.currentUser.isRoot && !this.adminOverview()) {
+      this.adminOverview.set(DEFAULT_ADMIN);
     }
   }
 
-  private async fetchDashboardData() {
-    const siteKey = this.selectedSiteKey();
-    if (!siteKey) {
-      this.liveEvents.set([]);
-      this.stats.set(null);
-      this.metricDefinitions.set([]);
-      this.kpis.set([]);
-      this.kpiResults.set({});
-      this.dashboardLayout.set(null);
-      return;
-    }
+  private resetDashboardCollections() {
+    this.liveEvents.set([]);
+    this.stats.set(null);
+    this.metricDefinitions.set([]);
+    this.kpis.set([]);
+    this.kpiResults.set({});
+    this.dashboardLayout.set(null);
+    this.selectedMetricId.set('');
+  }
 
-    this.isLoadingMetrics.set(true);
+  private resetLocalState() {
+    this.activeTab.set('overview');
+    this.rangeHours.set(24);
+    this.sites.set([DEFAULT_SITE]);
+    this.selectedSiteKey.set(DEFAULT_SITE.siteKey);
+    this.newSiteName.set('');
+    this.newSiteDomain.set('');
     this.dashboardError.set('');
-    try {
-      const [events, stats] = await Promise.all([
-        this.sdkEventsService.getRecentEvents(siteKey, 40),
-        this.sdkEventsService.getStats(siteKey, this.rangeHours()),
-      ]);
-      this.liveEvents.set(events);
-      this.stats.set(stats);
-      if (this.selectedSiteId()) {
-        await this.loadKpiData(this.selectedSiteId());
-      }
-    } catch (error) {
-      this.dashboardError.set(this.getErrorMessage(error));
-    } finally {
-      this.isLoadingMetrics.set(false);
-    }
-  }
-
-  private async loadAdminOverview() {
-    try {
-      const overview = await this.adminService.getOverview();
-      this.adminOverview.set(overview);
-    } catch (error) {
-      this.dashboardError.set(this.getErrorMessage(error));
-    }
-  }
-
-  private async loadKpiData(siteId: string) {
-    try {
-      const [metrics, kpis, dashboard] = await Promise.all([
-        this.sdkEventsService.getMetricDefinitions(siteId),
-        this.sdkEventsService.getKpis(siteId),
-        this.sdkEventsService.getDashboard(siteId),
-      ]);
-
-      this.metricDefinitions.set(metrics);
-      this.kpis.set(kpis);
-      this.dashboardLayout.set(dashboard);
-
-      if (!this.selectedMetricId() && metrics.length) {
-        this.selectedMetricId.set(metrics[0].id);
-      }
-
-      const results = await Promise.all(
-        kpis.map(async (kpi) => {
-          try {
-            return [kpi.id, await this.sdkEventsService.getKpiResult(kpi.id)] as const;
-          } catch {
-            return [kpi.id, null] as const;
-          }
-        }),
-      );
-      this.kpiResults.set(
-        results.reduce<Record<string, KpiResult>>((acc, [kpiId, result]) => {
-          if (result) acc[kpiId] = result;
-          return acc;
-        }, {}),
-      );
-    } catch (error) {
-      this.dashboardError.set(this.getErrorMessage(error));
-    }
-  }
-
-  private getErrorMessage(error: unknown) {
-    return error instanceof Error ? error.message : 'Erro inesperado';
+    this.isCreatingSite.set(false);
+    this.isLoadingMetrics.set(false);
+    this.liveEvents.set(DEFAULT_LIVE_EVENTS);
+    this.stats.set(DEFAULT_STATS);
+    this.adminOverview.set(DEFAULT_ADMIN);
+    this.metricDefinitions.set(DEFAULT_METRICS);
+    this.kpis.set(DEFAULT_KPIS);
+    this.kpiResults.set(DEFAULT_KPI_RESULTS);
+    this.dashboardLayout.set(DEFAULT_DASHBOARD_LAYOUT);
+    this.selectedMetricId.set(DEFAULT_METRICS[0].id);
+    this.newMetricName.set('Eventos por tipo');
+    this.newMetricSource.set('events');
+    this.newMetricAggregation.set('count');
+    this.newMetricField.set('');
+    this.newMetricEventType.set('');
+    this.newMetricGroupBy.set('event_type');
+    this.newKpiName.set('KPI configuravel');
+    this.newKpiChartType.set('number');
+    this.isSavingKpi.set(false);
   }
 }

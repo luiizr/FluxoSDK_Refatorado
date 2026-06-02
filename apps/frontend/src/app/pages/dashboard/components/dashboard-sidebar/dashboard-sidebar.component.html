@@ -1,0 +1,31 @@
+<aside class="sidebar">
+  <div class="brand">
+    <h2>FluxoSDK</h2>
+  </div>
+
+  <div class="sidebar-scroll-area">
+    <app-dashboard-nav-section
+      title="MENU PRINCIPAL"
+      [items]="mainItems"
+      [activeTab]="activeTab"
+      [isRoot]="currentUser.isRoot"
+      (tabChange)="tabChange.emit($event)"
+    />
+
+    <app-dashboard-nav-section
+      title="CONFIGURAÇÕES"
+      [items]="settingsItems"
+      [activeTab]="activeTab"
+      [isRoot]="currentUser.isRoot"
+      (tabChange)="tabChange.emit($event)"
+    />
+  </div>
+
+  <div class="sidebar-footer">
+    <button type="button" (click)="logout.emit()" class="logout-btn">
+      <span class="icon">↪</span>
+      Sair da conta
+    </button>
+  </div>
+</aside>
+

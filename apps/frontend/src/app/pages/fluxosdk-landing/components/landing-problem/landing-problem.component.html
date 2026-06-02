@@ -1,0 +1,33 @@
+<section class="problem" id="problema">
+  <div class="section-head">
+    <p class="eyebrow">O ponto cego</p>
+    <h2>Analytics tradicional mostra volume, nao mostra friccao.</h2>
+    <p>
+      O FluxoSDK foi desenhado para responder a pergunta que relatórios
+      genericos deixam aberta: o que exatamente impediu o usuario de avancar?
+    </p>
+  </div>
+
+  <div class="problem__grid">
+    @for (card of cards; track card.title) {
+      <article class="problem-card">
+        <span>{{ card.accent }}</span>
+        <h3>{{ card.title }}</h3>
+        <p>{{ card.description }}</p>
+      </article>
+    }
+  </div>
+
+  <div class="compare">
+    <div>
+      <span class="compare__label">Antes</span>
+      <strong>"Checkout caiu 12%"</strong>
+      <p>Um numero solto, sem prioridade clara e sem contexto tecnico.</p>
+    </div>
+    <div>
+      <span class="compare__label compare__label--good">Com FluxoSDK</span>
+      <strong>"13 rage clicks no botao finalizar apos erro TypeError"</strong>
+      <p>Um diagnostico acionavel para produto e engenharia corrigirem juntos.</p>
+    </div>
+  </div>
+</section>

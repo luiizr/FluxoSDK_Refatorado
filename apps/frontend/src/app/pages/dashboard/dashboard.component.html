@@ -1,89 +1,18 @@
 <main class="dashboard-layout">
-  <aside class="sidebar">
-    <div class="brand">
-      <img class="logo" src="/Fotoram.io.png" alt="Logo FluxoSDK" />
-      <h2>FluxoSDK</h2>
-    </div>
-
-    <div class="sidebar-scroll-area">
-      <div class="nav-section">
-        <div class="nav-section-title">MENU PRINCIPAL</div>
-        <nav class="nav-menu">
-          <a href="#" [class.active]="activeTab() === 'overview'" (click)="setTab('overview', $event)">
-            <span class="icon">⌂</span>
-            Dashboard
-          </a>
-          <a href="#" [class.active]="activeTab() === 'logs'" (click)="setTab('logs', $event)">
-            <span class="icon">≡</span>
-            Eventos
-          </a>
-          <a href="#" [class.active]="activeTab() === 'sessions'" (click)="setTab('sessions', $event)">
-            <span class="icon">◷</span>
-            Sessões
-          </a>
-          <a href="#" [class.active]="activeTab() === 'kpis'" (click)="setTab('kpis', $event)">
-            <span class="icon">#</span>
-            KPIs
-          </a>
-          @if (currentUser.isRoot) {
-            <a href="#" [class.active]="activeTab() === 'admin'" (click)="setTab('admin', $event)">
-              <span class="icon">◎</span>
-              Admin
-            </a>
-          }
-        </nav>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-section-title">CONFIGURAÇÕES</div>
-        <nav class="nav-menu">
-          <a href="#" [class.active]="activeTab() === 'settings'" (click)="setTab('settings', $event)">
-            <span class="icon">◇</span>
-            Sites
-          </a>
-        </nav>
-      </div>
-    </div>
-
-    <div class="sidebar-footer">
-      <button (click)="logout()" class="logout-btn">
-        <span class="icon">↪</span>
-        Sair da conta
-      </button>
-    </div>
-  </aside>
+  <app-dashboard-sidebar
+    [activeTab]="activeTab()"
+    [currentUser]="currentUser"
+    (tabChange)="setTab($event)"
+    (logout)="logout()"
+  />
 
   <section class="main-content">
-    <header class="topbar">
-      <div class="topbar-sites">
-        <select
-          id="site-select"
-          [ngModel]="selectedSiteKey()"
-          (ngModelChange)="selectedSiteKey.set($event); onSiteChanged()"
-          aria-label="Ambiente ativo"
-          class="site-select-top"
-        >
-          @for (site of sites(); track trackBySiteId($index, site)) {
-            <option [value]="site.siteKey">
-              {{ site.name }} ({{ site.domain }})
-            </option>
-          }
-        </select>
-      </div>
-
-      <div class="topbar-profile">
-        @if (currentUser.isRoot) {
-          <span class="role-badge">Admin</span>
-        }
-        <div class="user-profile">
-          <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="Avatar" />
-          <div class="user-info">
-            <strong>{{ currentUser.name }}</strong>
-            <span>{{ currentUser.email }}</span>
-          </div>
-        </div>
-      </div>
-    </header>
+    <app-dashboard-topbar
+      [sites]="sites()"
+      [selectedSiteKey]="selectedSiteKey()"
+      [currentUser]="currentUser"
+      (selectedSiteKeyChange)="selectedSiteKey.set($event); onSiteChanged()"
+    />
 
     @if (dashboardError()) {
       <div class="alert-banner">{{ dashboardError() }}</div>
@@ -93,7 +22,7 @@
       <div class="empty-state">
         <h2>Nenhum site selecionado</h2>
         <p>Cadastre um site para começar a receber métricas.</p>
-        <button (click)="setTab('settings', $event)" class="action-btn">Gerenciar sites</button>
+        <button (click)="setTab('settings')" class="action-btn">Gerenciar sites</button>
       </div>
     }
 

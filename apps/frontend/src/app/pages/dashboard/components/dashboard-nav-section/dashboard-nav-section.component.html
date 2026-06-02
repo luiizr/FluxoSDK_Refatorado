@@ -1,0 +1,19 @@
+<div class="nav-section">
+  <div class="nav-section-title">{{ title }}</div>
+  <nav class="nav-menu" aria-label="{{ title }}">
+    @for (item of items; track item.tab) {
+      @if (!item.requiresRoot || isRoot) {
+        <button
+          type="button"
+          class="nav-link"
+          [class.active]="activeTab === item.tab"
+          (click)="selectTab(item.tab)"
+        >
+          <span class="icon">{{ item.icon }}</span>
+          <span>{{ item.label }}</span>
+        </button>
+      }
+    }
+  </nav>
+</div>
+

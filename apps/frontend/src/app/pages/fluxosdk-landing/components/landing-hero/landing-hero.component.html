@@ -1,0 +1,110 @@
+<section class="hero" id="inicio">
+  <div class="hero__inner">
+    <div class="hero__copy">
+      <p class="eyebrow">Analytics comportamental para SaaS e produtos digitais</p>
+      <h1>Encontre onde seus usuarios travam antes da conversao cair.</h1>
+      <p class="lead">
+        O FluxoSDK captura eventos, cliques frustrados, erros JavaScript e
+        mudancas de interface em uma timeline simples para produto, engenharia e
+        growth agirem juntos.
+      </p>
+
+      <div class="hero__actions">
+        <a class="button button--primary" routerLink="/auth">Comecar gratis</a>
+        <a class="button button--secondary" href="#solucao">Ver como funciona</a>
+      </div>
+
+      <dl class="proof">
+        <div>
+          <dt>2 min</dt>
+          <dd>setup com snippet JS</dd>
+        </div>
+        <div>
+          <dt>0 cookies</dt>
+          <dd>privacidade por padrao</dd>
+        </div>
+        <div>
+          <dt>Tempo real</dt>
+          <dd>eventos sem esperar relatorio</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="hero__visual" aria-label="Preview do dashboard FluxoSDK">
+      <div class="browser">
+        <div class="browser__bar">
+          <span></span>
+          <span></span>
+          <span></span>
+          <div>app.fluxosdk.com/sites/checkout</div>
+        </div>
+
+        <div class="dashboard">
+          <aside class="dashboard__sidebar">
+            <div class="mini-brand">
+              <img src="/fluxosdk-logo.svg" alt="" />
+              <strong>FluxoSDK</strong>
+            </div>
+            <span class="side-item side-item--active">Overview</span>
+            <span class="side-item">Eventos</span>
+            <span class="side-item">Sessoes</span>
+            <span class="side-item">Sites</span>
+          </aside>
+
+          <div class="dashboard__main">
+            <div class="dashboard__top">
+              <div>
+                <span class="caption">Site ativo</span>
+                <strong>checkout.fluxo.app</strong>
+              </div>
+              <span class="live">Ao vivo</span>
+            </div>
+
+            <div class="metrics">
+              @for (metric of metrics; track metric.label) {
+                <article
+                  class="metric"
+                  [class.metric--accent]="metric.tone === 'accent'"
+                  [class.metric--blue]="metric.tone === 'blue'"
+                  [class.metric--amber]="metric.tone === 'amber'"
+                  [class.metric--danger]="metric.tone === 'danger'"
+                >
+                  <span>{{ metric.label }}</span>
+                  <strong>{{ metric.value }}</strong>
+                  <small>{{ metric.detail }}</small>
+                </article>
+              }
+            </div>
+
+            <div class="insight-panel">
+              <div class="insight-panel__header">
+                <span>Timeline priorizada</span>
+                <strong>Impacto na conversao</strong>
+              </div>
+
+              <div class="signal-list">
+                @for (signal of liveSignals; track signal.title; let i = $index) {
+                  <div class="signal" [class.is-active]="i === activeSignalIndex">
+                    <span class="signal__dot"></span>
+                    <div>
+                      <strong>{{ signal.title }}</strong>
+                      <small>{{ signal.meta }}</small>
+                    </div>
+                    <em>{{ signal.status }}</em>
+                  </div>
+                }
+              </div>
+
+              <div class="flow">
+                <span>Visitou pricing</span>
+                <span>Clicou CTA</span>
+                <span>Erro no checkout</span>
+                <span>Alerta enviado</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

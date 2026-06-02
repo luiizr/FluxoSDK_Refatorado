@@ -1,0 +1,17 @@
+<section class="faq" id="faq">
+  <div class="faq__inner">
+    <div class="section-head">
+      <p class="eyebrow">FAQ</p>
+      <h2>Perguntas antes do primeiro deploy.</h2>
+    </div>
+
+    <div class="faq__list">
+      @for (faq of faqs; track faq.question; let first = $first) {
+        <details [open]="first">
+          <summary>{{ faq.question }}</summary>
+          <p>{{ faq.answer }}</p>
+        </details>
+      }
+    </div>
+  </div>
+</section>

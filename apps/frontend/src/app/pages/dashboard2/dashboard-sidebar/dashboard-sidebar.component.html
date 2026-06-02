@@ -1,0 +1,51 @@
+<aside class="sidebar">
+  <div class="brand">
+    <!-- <img class="logo" src="/fluxosdk-logo.svg" alt="Logo FluxoSDK" /> -->
+    <h2>FluxoSDK</h2>
+  </div>
+
+  <div class="sidebar-scroll-area">
+    <div class="nav-section">
+      <div class="nav-section-title">MENU PRINCIPAL</div>
+      <nav class="nav-menu" aria-label="Menu principal">
+        <a routerLink="/dashboard/overview" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">
+          <span class="icon">⌂</span>
+          Dashboard
+        </a>
+        <a routerLink="/dashboard/logs" routerLinkActive="active" class="nav-link">
+          <span class="icon">≡</span>
+          Eventos
+        </a>
+        <a routerLink="/dashboard/sessions" routerLinkActive="active" class="nav-link">
+          <span class="icon">◷</span>
+          Sessões
+        </a>
+        <a routerLink="/dashboard/kpis" routerLinkActive="active" class="nav-link">
+          <span class="icon">#</span>
+          KPIs
+        </a>
+        <a routerLink="/dashboard/admin" routerLinkActive="active" class="nav-link">
+          <span class="icon">◎</span>
+          Admin
+        </a>
+      </nav>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">CONFIGURAÇÕES</div>
+      <nav class="nav-menu" aria-label="Configurações">
+        <a routerLink="/dashboard/settings" routerLinkActive="active" class="nav-link">
+          <span class="icon">◇</span>
+          Sites
+        </a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <button type="button" (click)="logout()" class="logout-btn">
+      <span class="icon">↪</span>
+      Sair da conta
+    </button>
+  </div>
+</aside>
