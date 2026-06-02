@@ -22,7 +22,7 @@ CREATE TABLE usuarios (
     
     -- Dados de contato e foto
     num_wpp INTEGER,                 -- Número de WhatsApp (apenas dígitos)
-    urlPhoto VARCHAR(500),
+    urlPhoto TEXT,
     
     -- Datas (formato DATE)
     createdAt DATE DEFAULT CURRENT_DATE,

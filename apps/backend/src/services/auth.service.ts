@@ -19,7 +19,7 @@ export type AuthenticatedUser = DbUser & {
 
 export class AuthService {
   private readonly passwordService = new PasswordService();
-  private readonly accessTokenSecret = process.env.API_ACCESS_TOKEN_SECRET;
+  private readonly accessTokenSecret = process.env.API_ACCESS_TOKEN_SECRET as string;
   private readonly accessTokenTtlSeconds = 60 * 60 * 24 * 7;
 
   async register(

@@ -151,17 +151,31 @@ export class AuthComponent {
       return;
     }
 
-    this.isAuthLoading.set(true);
-    try {
-      let user;
-      if (this.isRegistering()) {
-        const userPayload = this.buildUserPayload();
-        user = await this.authService.register(userPayload);
-        console.info('usuario criado:', user);
-      } else {
-        const userPayload = this.buildUserPayload();
-        user = await this.authService.login(userPayload);
-      }
+  this.isAuthLoading.set(true);
+  try {
+    let user;
+    if (this.isRegistering()) {
+      const userPayload = {
+        name: this.authName().trim(),
+        email: this.authEmail().trim(),
+        password: this.authPassword(),
+        twoFactor: this.authTwoFactor(),
+      };
+      
+      // Pegar o arquivo do input de arquivo
+      const fileInput = document.querySelector('#avatarInput') as HTMLInputElement;
+      const avatarFile = fileInput?.files?.[0];
+      
+      user = await this.authService.register(userPayload, avatarFile);
+      console.info('Usuário criado:', user);
+    } else {
+      const userPayload = {
+        email: this.authEmail().trim(),
+        password: this.authPassword(),
+        twoFactor: this.authTwoFactor(),
+      } as any;
+      user = await this.authService.login(userPayload);
+    }
 
       localStorage.setItem('fluxosdk_user_id', user.id);
       localStorage.setItem('fluxosdk_user_name', user.name || '');

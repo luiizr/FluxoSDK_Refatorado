@@ -25,6 +25,7 @@ app.use((req, _res, next) => {
 });
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use(routes);
+app.use('/uploads', express.static(path.join(__dirname, '../../../uploads')));
 
 let pgConnected = false;
 

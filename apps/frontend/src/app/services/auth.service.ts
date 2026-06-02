@@ -16,12 +16,22 @@ export interface UserPayload {
 export class AuthService { 
   private readonly apiUrl = environment.apiUrl.replace(/\/$/, '');
   
-  async register(UserPayload: UserPayload) {
+  async register(userPayload: UserPayload, avatarFile?: File) {
+    const formData = new FormData();
+    formData.append('name', userPayload.name);
+    formData.append('email', userPayload.email);
+    formData.append('password', userPayload.password);
+    formData.append('twoFactor', String(userPayload.twoFactor));
+    
+    if (avatarFile) {
+      formData.append('avatar', avatarFile);
+    }
+    
     const response = await fetch(`${this.apiUrl}/auth/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(UserPayload),
+      body: formData, // Não coloque 'Content-Type' manualmente
     });
+    
     const data = await response.json();
     if (!data.ok) throw new Error(data.message);
     return data.data;
