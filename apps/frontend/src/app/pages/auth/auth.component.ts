@@ -163,7 +163,7 @@ export class AuthComponent {
       };
       
       // Pegar o arquivo do input de arquivo
-      const fileInput = document.querySelector('#avatarInput') as HTMLInputElement;
+      const fileInput = document.querySelector('#authAvatar') as HTMLInputElement;
       const avatarFile = fileInput?.files?.[0];
       
       user = await this.authService.register(userPayload, avatarFile);

@@ -4,7 +4,8 @@ import { randomUUID } from 'crypto';
 import fs from 'fs';
 
 // Garantir que a pasta existe
-const uploadDir = path.join(__dirname, '../../../uploads/avatars');
+const uploadDir = path.join(process.cwd(), 'uploads/avatars');
+
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
