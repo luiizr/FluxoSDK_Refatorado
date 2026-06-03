@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 import { DashboardSidebarComponent } from './components/dashboard-sidebar/dashboard-sidebar.component';
 import { DashboardTopbarComponent } from './components/dashboard-topbar/dashboard-topbar.component';
 import {
@@ -193,12 +194,13 @@ const DEFAULT_LIVE_EVENTS: LiveEvent[] = [
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
   private pollInterval?: ReturnType<typeof setInterval>;
 
   protected currentUser: CurrentUser = {
     name: 'Usuario',
     email: 'usuario@fluxosdk.com',
-    isRoot: true,
+    isRoot: false,
   };
 
   protected sdkLink = 'http://localhost:3000/assets/embed.js';
@@ -233,7 +235,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   protected isSavingKpi = signal<boolean>(false);
 
   async ngOnInit() {
-    this.extractUserInfo();
+    await this.extractUserInfo();
     this.initializeLocalData();
 
     if (this.pollInterval) clearInterval(this.pollInterval);
@@ -383,10 +385,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   protected logout() {
-    localStorage.removeItem('fluxosdk_user_id');
-    localStorage.removeItem('fluxosdk_user_name');
-    localStorage.removeItem('fluxosdk_user_email');
-    localStorage.removeItem('fluxosdk_user_is_root');
+    this.authService.logout();
     this.resetLocalState();
     void this.router.navigate(['/']);
   }
@@ -543,18 +542,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  private extractUserInfo() {
-    try {
-      const email = localStorage.getItem('fluxosdk_user_email');
-      const name = localStorage.getItem('fluxosdk_user_name');
-      const isRoot = localStorage.getItem('fluxosdk_user_is_root') === 'true';
+  private async extractUserInfo() {
+    const user = await this.authService.getCurrentUser();
+    if (user) {
       this.currentUser = {
-        name: name || 'Usuario',
-        email: email || 'usuario@fluxosdk.com',
-        isRoot,
+        name: user.name || 'Usuario',
+        email: user.email,
+        isRoot: false,
       };
-    } catch {
-      // LocalStorage pode estar indisponivel em alguns contextos.
     }
   }
 

@@ -1,20 +1,23 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = async () => {
   const router = inject(Router);
-  const isAuthenticated = !!localStorage.getItem('fluxosdk_user_id');
+  const authService = inject(AuthService);
+  const isAuthenticated = await authService.validateSession();
 
   if (isAuthenticated) {
     return true;
   }
 
-  return router.navigate(['/auth']);
+  return router.navigate(['/']);
 };
 
-export const guestGuard: CanActivateFn = () => {
+export const guestGuard: CanActivateFn = async () => {
   const router = inject(Router);
-  const isAuthenticated = !!localStorage.getItem('fluxosdk_user_id');
+  const authService = inject(AuthService);
+  const isAuthenticated = await authService.validateSession();
 
   if (!isAuthenticated) {
     return true;

@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { AuthService, type UserPayload } from '../../services/auth.service';
+import { AuthService, type LoginPayload, type RegisterPayload } from '../../services/auth.service';
 
 @Component({
   selector: 'app-auth',
@@ -25,19 +25,9 @@ export class AuthComponent {
   protected authAvatarPreview = signal<string>('');
   protected authAvatarName = signal<string>('');
   protected authAvatarError = signal<string>('');
-  protected authTwoFactor = signal<boolean>(false);
   protected acceptTerms = signal<boolean>(false);
   protected errorMessage = signal<string>('');
-
-  private buildUserPayload(): UserPayload {
-    return {
-      name: this.authName().trim(),
-      email: this.authEmail().trim(),
-      password: this.authPassword(),
-      twoFactor: this.authTwoFactor(),
-      urlPhoto: this.authAvatarPreview() || undefined,
-    };
-  }
+  private selectedAvatarFile?: File;
 
   validateBaseRegistration(): boolean {
     this.errorMessage.set('');
@@ -93,12 +83,14 @@ export class AuthComponent {
     this.authAvatarError.set('');
 
     if (!file) {
+      this.selectedAvatarFile = undefined;
       this.authAvatarPreview.set('');
       this.authAvatarName.set('');
       return;
     }
 
     if (!file.type.startsWith('image/')) {
+      this.selectedAvatarFile = undefined;
       this.authAvatarPreview.set('');
       this.authAvatarName.set('');
       this.authAvatarError.set('Selecione um arquivo de imagem válido.');
@@ -107,6 +99,7 @@ export class AuthComponent {
     }
 
     if (file.size > 2 * 1024 * 1024) {
+      this.selectedAvatarFile = undefined;
       this.authAvatarPreview.set('');
       this.authAvatarName.set('');
       this.authAvatarError.set('Use uma imagem de até 2 MB.');
@@ -114,6 +107,7 @@ export class AuthComponent {
       return;
     }
 
+    this.selectedAvatarFile = file;
     this.authAvatarName.set(file.name);
 
     const reader = new FileReader();
@@ -124,6 +118,7 @@ export class AuthComponent {
   }
 
   removePhoto() {
+    this.selectedAvatarFile = undefined;
     this.authAvatarPreview.set('');
     this.authAvatarName.set('');
     this.authAvatarError.set('');
@@ -151,52 +146,26 @@ export class AuthComponent {
       return;
     }
 
-  this.isAuthLoading.set(true);
-  try {
-    let user;
-    if (this.isRegistering()) {
-      const userPayload = {
-        name: this.authName().trim(),
-        email: this.authEmail().trim(),
-        password: this.authPassword(),
-        twoFactor: this.authTwoFactor(),
-      };
-      
-      // Pegar o arquivo do input de arquivo
-      const fileInput = document.querySelector('#authAvatar') as HTMLInputElement;
-      const avatarFile = fileInput?.files?.[0];
-      
-      user = await this.authService.register(userPayload, avatarFile);
-      console.info('Usuário criado:', user);
-    } else {
-      const userPayload = {
-        email: this.authEmail().trim(),
-        password: this.authPassword(),
-        twoFactor: this.authTwoFactor(),
-      } as any;
-      user = await this.authService.login(userPayload);
-    }
+    this.isAuthLoading.set(true);
+    try {
+      if (this.isRegistering()) {
+        const userPayload: RegisterPayload = {
+          name: this.authName().trim(),
+          email: this.authEmail().trim(),
+          password: this.authPassword(),
+        };
 
-      localStorage.setItem('fluxosdk_user_id', user.id);
-      localStorage.setItem('fluxosdk_user_name', user.name || '');
-      localStorage.setItem('fluxosdk_user_email', user.email);
-      localStorage.setItem('fluxosdk_user_is_root', String(Boolean(user.is_root)));
-      localStorage.setItem('fluxosdk_user_two_factor', String(this.authTwoFactor()));
-      // if (this.authAvatarName()) {
-      //   localStorage.setItem('fluxosdk_user_avatar_name', this.authAvatarName());
-      // }
+        await this.authService.register(userPayload, this.selectedAvatarFile);
+      } else {
+        const userPayload: LoginPayload = {
+          email: this.authEmail().trim(),
+          password: this.authPassword(),
+        };
 
-      // Limpa os campos
-      this.authName.set('');
-      this.authEmail.set('');
-      this.authPassword.set('');
-      this.authConfirmPassword.set('');
-      this.authAvatarPreview.set('');
-      this.authAvatarName.set('');
-      this.authAvatarError.set('');
-      this.authTwoFactor.set(false);
-      this.acceptTerms.set(false);
-      this.registrationStep.set(1);
+        await this.authService.login(userPayload);
+      }
+
+      this.resetAuthForm();
 
       await this.router.navigate(['/dashboard']);
     } catch (error: any) {
@@ -221,12 +190,25 @@ export class AuthComponent {
 
   protected resetRegistrationFlow() {
     this.registrationStep.set(1);
+    this.selectedAvatarFile = undefined;
     this.authAvatarPreview.set('');
     this.authAvatarName.set('');
     this.authAvatarError.set('');
-    this.authTwoFactor.set(false);
     this.acceptTerms.set(false);
     this.errorMessage.set('');
+  }
+
+  private resetAuthForm() {
+    this.authName.set('');
+    this.authEmail.set('');
+    this.authPassword.set('');
+    this.authConfirmPassword.set('');
+    this.selectedAvatarFile = undefined;
+    this.authAvatarPreview.set('');
+    this.authAvatarName.set('');
+    this.authAvatarError.set('');
+    this.acceptTerms.set(false);
+    this.registrationStep.set(1);
   }
 
   private validateLoginForm(): boolean {

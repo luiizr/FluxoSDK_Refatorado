@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { pg } from '../main';
 import { PasswordService } from './password.service';
 
@@ -6,15 +6,23 @@ type DbUser = {
   id: string;
   name: string;
   email: string;
-  is_root: boolean;
-  urlphoto: string | null;
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
 };
 
-export type AuthenticatedUser = DbUser & {
+export type AuthenticatedUser = {
+  name: string;
+  email: string;
+};
+
+export type AuthenticatedSession = {
+  user: AuthenticatedUser;
   accessToken: string;
+};
+
+type AccessTokenPayload = {
+  sub: string;
+  iat: number;
+  exp: number;
 };
 
 export class AuthService {
@@ -28,7 +36,7 @@ export class AuthService {
     password: string,
     twoFactor: boolean,
     urlphoto?: string,
-  ): Promise<AuthenticatedUser> {
+  ): Promise<AuthenticatedSession> {
     if (!name) throw new Error('Nome é obrigatório');
     if (!email) throw new Error('E-mail é obrigatório');
     if (!password) throw new Error('Senha é obrigatória');
@@ -61,23 +69,17 @@ export class AuthService {
           id,
           name,
           email,
-          urlphoto AS urlphoto,
-          createdat AS created_at,
-          updatedat AS updated_at
+          isactive AS is_active
       `,
       [name, email, passwordHash, urlphoto, twoFactor ?? false],
     );
 
     const user = result.rows[0];
-    console.info("user created:", user);
 
-    return {
-      ...user,
-      accessToken: this.createAccessToken(user),
-    };
+    return this.createSession(user);
   }
 
-  async login(email: string, password: string): Promise<AuthenticatedUser> {
+  async login(email: string, password: string): Promise<AuthenticatedSession> {
     if (!email || !password) throw new Error('E-mail e senha são obrigatórios');
 
     const authQuery = await pg.query<DbUser & { password_hash: string }>(
@@ -86,9 +88,7 @@ export class AuthService {
           id,
           name,
           email,
-          urlphoto AS urlphoto,
-          createdat AS created_at,
-          updatedat AS updated_at,
+          isactive AS is_active,
           password AS password_hash
         FROM usuarios
         WHERE email = $1
@@ -102,6 +102,10 @@ export class AuthService {
 
     const user = authQuery.rows[0];
 
+    if (!user.is_active) {
+      throw new Error('Usuário inativo');
+    }
+
     if (!this.passwordService.comparePassword(password, user.password_hash)) {
       throw new Error('Senha incorreta');
     }
@@ -110,13 +114,40 @@ export class AuthService {
 
     const { password_hash: _passwordHash, ...safeUser } = user;
 
+    return this.createSession(safeUser);
+  }
+
+  async getUserFromToken(accessToken: string): Promise<AuthenticatedUser> {
+    const payload = this.verifyAccessToken(accessToken);
+    const result = await pg.query<DbUser>(
+      `
+        SELECT
+          id,
+          name,
+          email,
+          isactive AS is_active
+        FROM usuarios
+        WHERE id = $1
+      `,
+      [payload.sub],
+    );
+
+    const user = result.rows[0];
+    if (!user || !user.is_active) {
+      throw new Error('Token de acesso inválido');
+    }
+
+    return this.toPublicUser(user);
+  }
+
+  private createSession(user: DbUser): AuthenticatedSession {
     return {
-      ...safeUser,
-      accessToken: this.createAccessToken(safeUser),
+      user: this.toPublicUser(user),
+      accessToken: this.createAccessToken(user),
     };
   }
 
-  private createAccessToken(user: Pick<DbUser, 'id' | 'email'>): string {
+  private createAccessToken(user: Pick<DbUser, 'id'>): string {
     const header = this.base64UrlEncode({
       alg: 'HS256',
       typ: 'JWT',
@@ -125,20 +156,69 @@ export class AuthService {
     const now = Math.floor(Date.now() / 1000);
     const payload = this.base64UrlEncode({
       sub: String(user.id),
-      email: user.email,
       iat: now,
       exp: now + this.accessTokenTtlSeconds,
     });
 
     const unsignedToken = `${header}.${payload}`;
-    const signature = createHmac('sha256', this.accessTokenSecret)
-      .update(unsignedToken)
-      .digest('base64url');
+    const signature = this.signToken(unsignedToken);
 
     return `${unsignedToken}.${signature}`;
   }
 
+  private verifyAccessToken(accessToken: string): AccessTokenPayload {
+    const [headerPart, payloadPart, signature] = accessToken.split('.');
+
+    if (!headerPart || !payloadPart || !signature) {
+      throw new Error('Token de acesso inválido');
+    }
+
+    const header = this.base64UrlDecode<{ alg?: string; typ?: string }>(headerPart);
+    if (header.alg !== 'HS256' || header.typ !== 'JWT') {
+      throw new Error('Token de acesso inválido');
+    }
+
+    const unsignedToken = `${headerPart}.${payloadPart}`;
+    const expectedSignature = this.signToken(unsignedToken);
+    const received = Buffer.from(signature);
+    const expected = Buffer.from(expectedSignature);
+
+    if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
+      throw new Error('Token de acesso inválido');
+    }
+
+    const payload = this.base64UrlDecode<AccessTokenPayload>(payloadPart);
+    const now = Math.floor(Date.now() / 1000);
+
+    if (!payload.sub || !payload.exp || payload.exp <= now) {
+      throw new Error('Token de acesso expirado');
+    }
+
+    return payload;
+  }
+
+  private signToken(unsignedToken: string): string {
+    if (!this.accessTokenSecret) {
+      throw new Error('Segredo do token de acesso não configurado');
+    }
+
+    return createHmac('sha256', this.accessTokenSecret)
+      .update(unsignedToken)
+      .digest('base64url');
+  }
+
   private base64UrlEncode(value: unknown): string {
     return Buffer.from(JSON.stringify(value)).toString('base64url');
+  }
+
+  private base64UrlDecode<T>(value: string): T {
+    return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as T;
+  }
+
+  private toPublicUser(user: Pick<DbUser, 'name' | 'email'>): AuthenticatedUser {
+    return {
+      name: user.name,
+      email: user.email,
+    };
   }
 }

@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-dashboard-sidebar',
@@ -10,12 +11,10 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 })
 export class DashboardSidebarComponent {
   private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
 
   protected logout() {
-    localStorage.removeItem('fluxosdk_user_id');
-    localStorage.removeItem('fluxosdk_user_name');
-    localStorage.removeItem('fluxosdk_user_email');
-    localStorage.removeItem('fluxosdk_user_is_root');
+    this.authService.logout();
     void this.router.navigate(['/']);
   }
 }

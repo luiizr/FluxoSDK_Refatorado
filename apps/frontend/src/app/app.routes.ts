@@ -2,9 +2,7 @@ import { Route } from '@angular/router';
 import { AuthComponent } from './pages/auth/auth.component';
 import { authGuard, guestGuard } from './guards/auth.guard';
 
-import { DashboardComponent } from './pages/dashboard/dashboard.component';
-
-// import { DashboardComponent } from './pages/dashboard2/dashboard.component';
+import { DashboardComponent } from './pages/dashboard2/dashboard.component';
 import { OverviewComponent } from './pages/dashboard2/overview/overview.component';
 import { LogsComponent } from './pages/dashboard2/logs/logs.component';
 import { SessionsComponent } from './pages/dashboard2/sessions/sessions.component';

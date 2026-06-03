@@ -7,5 +7,6 @@ const authController = new AuthController();
 
 authRoutes.post('/register', upload.single('avatar'), authController.register);
 authRoutes.post('/login', authController.login);
+authRoutes.get('/me', authController.me);
 
 export { authRoutes };
