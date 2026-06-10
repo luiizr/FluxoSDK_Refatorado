@@ -1,13 +1,56 @@
-<section class="dashboard-page">
-  <header class="page-header">
-    <div class="page-title">
-      <h1>Sessões</h1>
-      <p>Resumo enxuto de visitantes e navegação.</p>
-    </div>
-  </header>
+<div class="dashboard-content">
+  <h2>Sessões de Usuários</h2>
 
-  <article class="page-card">
-    <h2>Sessões ativas</h2>
-    <p>Esse bloco fica isolado para você crescer sem misturar com a sidebar ou com outros módulos.</p>
-  </article>
-</section>
+  <div class="card" style="padding: 1.5rem; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="border-bottom: 2px solid #eee; text-align: left;">
+          <th style="padding: 0.75rem;">ID Sessão</th>
+          <th style="padding: 0.75rem;">Visto em</th>
+          <th style="padding: 0.75rem;">Eventos</th>
+          <th style="padding: 0.75rem;">Cliques</th>
+          <th style="padding: 0.75rem;">Duração</th>
+          <th style="padding: 0.75rem;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let session of sessions" style="border-bottom: 1px solid #eee;">
+          <td style="padding: 0.75rem; font-size: 0.8rem; color: #666;">{{ session.session_id }}</td>
+          <td style="padding: 0.75rem;">{{ session.last_seen_at | date:'short' }}</td>
+          <td style="padding: 0.75rem;">{{ session.event_count }}</td>
+          <td style="padding: 0.75rem;">{{ session.click_count }}</td>
+          <td style="padding: 0.75rem;">{{ formatDuration(session.duration_seconds || 0) }}</td>
+          <td style="padding: 0.75rem;">
+            <button (click)="playSession(session.session_id)" style="padding: 0.25rem 0.5rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+              Reproduzir
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="sessions.length === 0">
+          <td colspan="6" style="padding: 2rem; text-align: center; color: #999;">Nenhuma sessão encontrada.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal de Playback -->
+  <div *ngIf="selectedSessionEvents || loadingPlayback" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+    <div style="background: white; padding: 1rem; border-radius: 8px; position: relative; max-width: 850px; width: 95%;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3>Reproduzindo Sessão</h3>
+        <button (click)="closePlayback()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+      
+      <div *ngIf="loadingPlayback" style="padding: 3rem; text-align: center;">Carregando gravação...</div>
+      
+      <div #playerContainer id="player-container"></div>
+      
+      <div style="margin-top: 1rem; text-align: right;">
+        <button (click)="closePlayback()" style="padding: 0.5rem 1rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Incluir CSS do rrweb-player via CDN para simplificar o MVP -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/rrweb-player@latest/dist/style.css" />
