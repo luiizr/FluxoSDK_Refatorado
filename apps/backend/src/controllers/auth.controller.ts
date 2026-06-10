@@ -29,6 +29,7 @@ export class AuthController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro interno';
       return response.status(400).json({ ok: false, message });
+      //a
     }
   };
 }
