@@ -15,7 +15,7 @@ export const recordingWorker = new Worker(
   'recording-processing',
   async (job) => {
     const { sessionId, events, siteKey } = job.data;
-    console.log(`[Worker Gravação] Processando sessão ${sessionId}`);
+    console.log(`[WORKER] [5/5] Gravando arquivo JSON da sessão ${sessionId}`);
 
     // Em um cenário real de "Data Lake", salvaríamos no Supabase Storage ou S3
     const fileName = `${siteKey}_${sessionId}.json`;
@@ -29,6 +29,7 @@ export const recordingWorker = new Worker(
 
     const allEvents = [...existingEvents, ...events];
     fs.writeFileSync(filePath, JSON.stringify(allEvents));
+    console.log(`[WORKER] Gravação salva em: ${filePath}`);
 
     return { success: true, path: filePath };
   },
@@ -40,7 +41,7 @@ export const metricsWorker = new Worker(
   'metrics-processing',
   async (job) => {
     const { sessionId, siteKey, visitorId, url, path: pagePath, title, events } = job.data;
-    console.log(`[Worker Métricas] Processando sessão ${sessionId}`);
+    console.log(`[WORKER] [5/5] Processando métricas no banco para sessão ${sessionId}`);
 
     try {
       // 1. Garantir que a sessão existe
@@ -60,8 +61,7 @@ export const metricsWorker = new Worker(
       await pg.query(
         `INSERT INTO session_metrics (session_id, event_count, click_count)
          VALUES ($1, $2, $3)
-         ON CONFLICT (id) DO NOTHING`, // Simplificado para MVP
-         // Idealmente faria um UPDATE incrementando
+         ON CONFLICT (id) DO NOTHING`,
         [sessionId, eventCount, clickCount],
       );
       
@@ -74,9 +74,10 @@ export const metricsWorker = new Worker(
          WHERE session_id = $1`,
         [sessionId, eventCount, clickCount]
       );
+      console.log(`[WORKER] Métricas atualizadas no Postgres para sessão ${sessionId}`);
 
     } catch (err) {
-      console.error('[Worker Métricas] Erro:', err);
+      console.error('[WORKER] Erro no processamento de métricas:', err);
       throw err;
     }
   },

@@ -7,8 +7,8 @@
       aria-label="Ambiente ativo"
       class="site-select-top"
     >
-      @for (site of sites; track site.id) {
-        <option [value]="site.siteKey">
+      @for (site of sites(); track site.id) {
+        <option [value]="site.public_key">
           {{ site.name }} ({{ site.domain }})
         </option>
       }

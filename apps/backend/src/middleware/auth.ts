@@ -2,17 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service';
 
 const authService = new AuthService();
-console.info('AuthService instanciado no middleware de autenticação');
 export const authMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
-  console.info('Verificando autenticação...');
-  console.info('req.headers:', req.headers);
-  console.info('req.headers.authorization:', req.headers.authorization);
-  console.info('req', req);
-
   try {
     const authorization = req.headers.authorization;
     if (!authorization?.startsWith('Bearer ')) {

@@ -10,6 +10,7 @@ type DbUser = {
 };
 
 export type AuthenticatedUser = {
+  id: string;
   name: string;
   email: string;
 };
@@ -210,8 +211,9 @@ export class AuthService {
     return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as T;
   }
 
-  private toPublicUser(user: Pick<DbUser, 'name' | 'email'>): AuthenticatedUser {
+  private toPublicUser(user: Pick<DbUser, 'id' | 'name' | 'email'>): AuthenticatedUser {
     return {
+      id: user.id,
       name: user.name,
       email: user.email,
     };

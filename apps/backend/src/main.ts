@@ -25,7 +25,16 @@ const io = new Server(httpServer, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST'],
+    credentials: true
   },
+  allowEIO3: true // Compatibilidade com versões mais antigas se necessário
+});
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
 });
 
 app.use(createCorsMiddleware(pg));
@@ -40,21 +49,27 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Socket.io logic
 io.on('connection', (socket) => {
-  console.log(`Socket conectado: ${socket.id}`);
+  console.log(`[BACKEND] Socket conectado: ${socket.id}`);
 
   socket.on('rrweb-batch', async (data) => {
-    // data: { siteKey, sessionId, visitorId, events: [] }
-    console.log(`Recebido lote de eventos rrweb de ${data.sessionId}`);
+    console.log(`[BACKEND] [4/5] Recebido lote de ${data.events.length} eventos da sessão ${data.sessionId}`);
     
-    // 1. Enviar para processamento de gravação (Data Lake)
-    await recordingQueue.add('process-batch', data);
-    
-    // 2. Enviar para processamento de métricas (Postgres)
-    await metricsQueue.add('process-metrics', data);
+    try {
+      console.log(`[BACKEND] Encaminhando para BullMQ (Redis)...`);
+      // 1. Enviar para processamento de gravação (Data Lake)
+      await recordingQueue.add('process-batch', data);
+      
+      // 2. Enviar para processamento de métricas (Postgres)
+      await metricsQueue.add('process-metrics', data);
+      
+      console.log(`[BACKEND] Jobs adicionados com sucesso ao BullMQ.`);
+    } catch (err) {
+      console.error(`[BACKEND] Erro ao adicionar jobs ao BullMQ:`, err);
+    }
   });
 
   socket.on('disconnect', () => {
-    console.log(`Socket desconectado: ${socket.id}`);
+    console.log(`[BACKEND] Socket desconectado: ${socket.id}`);
   });
 });
 
@@ -79,7 +94,7 @@ export function isPostgresConnected() {
   return pgConnected;
 }
 
-const porta_api = process.env.API_PORTA || 3333;
+const porta_api = process.env.API_PORTA || 3000;
 
 async function bootstrap() {
   await connectPostgres();

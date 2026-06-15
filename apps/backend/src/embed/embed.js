@@ -1,5 +1,11 @@
 (function () {
-  const scriptTag = document.currentScript;
+  console.log('FluxoSDK: Iniciando carregamento robusto...');
+  
+  const scriptTag = document.currentScript || (function() {
+    const scripts = document.getElementsByTagName('script');
+    return scripts[scripts.length - 1];
+  })();
+  
   const backendUrl = scriptTag.getAttribute('data-backend') || 'http://localhost:3000';
   const siteKey = scriptTag.getAttribute('data-key');
 
@@ -8,76 +14,97 @@
     return;
   }
 
-  // Carregar dependências via CDN de forma assíncrona
+  // --- Variáveis de Estado (Movidas para o topo para evitar ReferenceError) ---
+  let events = [];
+  const sessionId = sessionStorage.getItem('fluxosdk_session_id') || Math.random().toString(36).substring(2) + Date.now().toString(36);
+  sessionStorage.setItem('fluxosdk_session_id', sessionId);
+
+  const visitorId = localStorage.getItem('fluxosdk_visitor_id') || (function() {
+    const id = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    localStorage.setItem('fluxosdk_visitor_id', id);
+    return id;
+  })();
+
   const loadScript = (src) => {
     return new Promise((resolve, reject) => {
+      console.log(`FluxoSDK: Carregando ${src}...`);
       const s = document.createElement('script');
       s.src = src;
-      s.onload = resolve;
-      s.onerror = reject;
+      s.type = 'text/javascript';
+      s.async = true;
+      s.crossOrigin = 'anonymous';
+      
+      s.onload = () => {
+        console.log(`FluxoSDK: Sucesso ao carregar ${src}`);
+        resolve();
+      };
+      
+      s.onerror = () => {
+        console.error(`FluxoSDK: Erro crítico ao carregar ${src}`);
+        reject(new Error(`Falha no script: ${src}`));
+      };
+      
       document.head.appendChild(s);
     });
   };
 
+  function flush(sock) {
+    if (events.length > 0 && sock && sock.connected) {
+      console.log(`FluxoSDK [3/5]: Enviando lote de ${events.length} eventos...`);
+      sock.emit('rrweb-batch', {
+        siteKey,
+        sessionId,
+        visitorId,
+        url: window.location.href,
+        path: window.location.pathname,
+        title: document.title,
+        events: [...events],
+        sentAt: new Date().toISOString(),
+      });
+      events = [];
+    }
+  }
+
   async function start() {
     try {
-      await Promise.all([
-        loadScript('https://cdn.socket.io/4.7.2/socket.io.min.js'),
-        loadScript('https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.js'),
-      ]);
+      await loadScript(`${backendUrl}/assets/socket.io.min.js`);
+      await loadScript(`${backendUrl}/assets/rrweb.min.js`);
 
-      let events = [];
-      const sessionId =
-        sessionStorage.getItem('fluxosdk_session_id') ||
-        Math.random().toString(36).substring(2) + Date.now().toString(36);
-      sessionStorage.setItem('fluxosdk_session_id', sessionId);
+      await new Promise(r => setTimeout(r, 200));
 
-      let visitorId = localStorage.getItem('fluxosdk_visitor_id');
-      if (!visitorId) {
-        visitorId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-        localStorage.setItem('fluxosdk_visitor_id', visitorId);
-      }
+      if (typeof io === 'undefined') throw new Error('Socket.io não disponível');
+      if (typeof rrweb === 'undefined') throw new Error('rrweb não disponível');
 
-      const socket = io(backendUrl);
+      console.log('FluxoSDK: Dependências prontas. Iniciando socket...');
 
-      socket.on('connect', () => {
-        console.log('FluxoSDK: Conectado ao servidor');
+      const socket = io(backendUrl, {
+        transports: ['websocket', 'polling'],
+        reconnection: true
       });
 
+      socket.on('connect', () => {
+        console.log('FluxoSDK [1/5]: Conectado ao servidor');
+      });
+
+      console.log('FluxoSDK: Iniciando gravação rrweb...');
       rrweb.record({
         emit(event) {
           events.push(event);
-          // Enviar imediatamente se acumular muitos eventos
+          if (events.length === 1) {
+             console.log('FluxoSDK [2/5]: Primeiro evento capturado e acumulando...');
+          }
           if (events.length >= 100) {
-            flush();
+            console.log('FluxoSDK [2/5]: Limite de 100 eventos atingido, forçando envio.');
+            flush(socket);
           }
         },
       });
 
-      function flush() {
-        if (events.length > 0 && socket.connected) {
-          socket.emit('rrweb-batch', {
-            siteKey,
-            sessionId,
-            visitorId,
-            url: window.location.href,
-            path: window.location.pathname,
-            title: document.title,
-            events: [...events],
-            sentAt: new Date().toISOString(),
-          });
-          events = [];
-        }
-      }
-
-      // Enviar a cada 5 segundos se houver dados
-      setInterval(flush, 5000);
-
-      // Enviar antes de fechar a página
-      window.addEventListener('beforeunload', flush);
+      setInterval(() => flush(socket), 5000);
+      window.addEventListener('beforeunload', () => flush(socket));
 
     } catch (err) {
-      console.error('FluxoSDK: Erro ao inicializar', err);
+      console.error('FluxoSDK: Falha na inicialização:', err.message);
     }
   }
 

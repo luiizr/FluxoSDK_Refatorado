@@ -68,12 +68,11 @@ export class SiteController {
       }
 
       const publicKey = result.rows[0].public_key;
-      const backendUrl = process.env.PUBLIC_BACKEND_URL || 'http://localhost:3333';
+      const backendUrl = process.env.API_URL || 'http://localhost:3000';
       
       const snippet = `<script 
   src="${backendUrl}/assets/embed.js" 
   data-key="${publicKey}" 
-  data-backend="${backendUrl}" 
   async>
 </script>`;
 

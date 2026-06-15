@@ -1,7 +1,7 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const token = localStorage.getItem('fluxosdk_access_token');
+  const token = localStorage.getItem('bearerToken');
   
   if (token) {
     const cloned = req.clone({
