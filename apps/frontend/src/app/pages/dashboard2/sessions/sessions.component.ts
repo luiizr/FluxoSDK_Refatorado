@@ -1,8 +1,9 @@
 import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SessionService, BrowserSession } from '../../../services/session.service';
-import rrwebPlayer from 'rrweb-player';
+// import rrwebPlayer from 'rrweb-player';
 
+declare const rrwebPlayer: any; 
 @Component({
   selector: 'app-dashboard-sessions',
   standalone: true,

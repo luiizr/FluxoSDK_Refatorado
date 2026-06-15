@@ -88,7 +88,6 @@ export class AuthService {
           id,
           name,
           email,
-          isactive AS is_active,
           password AS password_hash
         FROM usuarios
         WHERE email = $1
@@ -101,10 +100,6 @@ export class AuthService {
     }
 
     const user = authQuery.rows[0];
-
-    if (!user.is_active) {
-      throw new Error('Usuário inativo');
-    }
 
     if (!this.passwordService.comparePassword(password, user.password_hash)) {
       throw new Error('Senha incorreta');

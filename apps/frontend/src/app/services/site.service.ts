@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { environment } from '../environment/environment.local';
-import { AuthService } from './auth.service';
+import { firstValueFrom } from 'rxjs';
 
 export interface Site {
   id: string;
@@ -10,42 +11,35 @@ export interface Site {
   public_key?: string;
 }
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class SiteService {
   private readonly apiUrl = environment.apiUrl.replace(/\/$/, '');
 
-  constructor(private authService: AuthService) {}
+  constructor(private http: HttpClient) {} // 👈 só isso
 
   async list(): Promise<Site[]> {
-    const response = await fetch(`${this.apiUrl}/sites`, {
-      headers: this.authService.authHeaders(),
-    });
-    const data = await response.json();
-    return data.ok ? data.data : [];
+    const response = await firstValueFrom(
+      this.http.get<{ ok: boolean; data: Site[] }>(`${this.apiUrl}/sites`)
+    );
+    if (!response.ok) throw new Error('Falha ao carregar sites');
+    return response.data;
   }
 
   async create(name: string, domain: string): Promise<Site> {
-    const response = await fetch(`${this.apiUrl}/sites`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.authService.authHeaders(),
-      },
-      body: JSON.stringify({ name, domain }),
-    });
-    const data = await response.json();
-    if (!data.ok) throw new Error(data.message);
-    return data.data;
+    const response = await firstValueFrom(
+      this.http.post<{ ok: boolean; data: Site }>(`${this.apiUrl}/sites`, { name, domain })
+    );
+    if (!response.ok) throw new Error('Erro ao criar site');
+    return response.data;
   }
 
   async getSnippet(siteId: string): Promise<{ snippet: string; publicKey: string }> {
-    const response = await fetch(`${this.apiUrl}/sites/${siteId}/snippet`, {
-      headers: this.authService.authHeaders(),
-    });
-    const data = await response.json();
-    if (!data.ok) throw new Error(data.message);
-    return data.data;
+    const response = await firstValueFrom(
+      this.http.get<{ ok: boolean; data: { snippet: string; publicKey: string } }>(
+        `${this.apiUrl}/sites/${siteId}/snippet`
+      )
+    );
+    if (!response.ok) throw new Error('Erro ao obter snippet');
+    return response.data;
   }
 }

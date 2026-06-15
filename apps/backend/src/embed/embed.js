@@ -1,6 +1,6 @@
 (function () {
   const scriptTag = document.currentScript;
-  const backendUrl = scriptTag.getAttribute('data-backend') || 'http://localhost:3333';
+  const backendUrl = scriptTag.getAttribute('data-backend') || 'http://localhost:3000';
   const siteKey = scriptTag.getAttribute('data-key');
 
   if (!siteKey) {
