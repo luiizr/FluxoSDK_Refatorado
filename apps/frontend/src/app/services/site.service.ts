@@ -3,12 +3,21 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../environment/environment.local';
 import { firstValueFrom } from 'rxjs';
 
+export interface SiteSettings {
+  recordConsole: boolean;
+  recordCanvas: boolean;
+  recordInput: boolean;
+  maskAllInputs: boolean;
+  checkoutEveryNms: number;
+}
+
 export interface Site {
   id: string;
   name: string;
   domain: string;
   active: boolean;
   public_key?: string;
+  settings?: SiteSettings;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -40,6 +49,14 @@ export class SiteService {
       )
     );
     if (!response.ok) throw new Error('Erro ao obter snippet');
+    return response.data;
+  }
+
+  async updateSettings(siteId: string, settings: SiteSettings): Promise<Site> {
+    const response = await firstValueFrom(
+      this.http.patch<{ ok: boolean; data: Site }>(`${this.apiUrl}/sites/${siteId}/settings`, { settings })
+    );
+    if (!response.ok) throw new Error('Erro ao atualizar configurações');
     return response.data;
   }
 }

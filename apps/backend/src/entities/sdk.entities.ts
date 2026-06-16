@@ -1,9 +1,18 @@
+export type SiteSettings = {
+  recordConsole: boolean;
+  recordCanvas: boolean;
+  recordInput: boolean;
+  maskAllInputs: boolean;
+  checkoutEveryNms: number;
+};
+
 export type Site = {
   id: string;
   userId?: string | null;
   name: string;
   domain: string;
   active: boolean;
+  settings: SiteSettings;
 };
 
 export type SiteKey = {
@@ -19,6 +28,16 @@ export type BrowserSession = {
   visitorId?: string | null;
   sessionId: string;
   userIdentifier?: string | null;
+  userAgent?: string;
+  ipAddress?: string;
+  browserName?: string;
+  browserVersion?: string;
+  osName?: string;
+  deviceType?: string;
+  screenResolution?: string;
+  language?: string;
+  country?: string;
+  city?: string;
   startedAt: string;
   lastSeenAt: string;
   context?: Record<string, unknown>;
@@ -98,6 +117,7 @@ export type ReceiveSdkEventsPayload = {
   user_identifier?: string;
   sentAt?: string;
   sent_at?: string;
+  metadata?: Record<string, unknown>;
   context?: Record<string, unknown>;
   events: SdkEvent[];
 };

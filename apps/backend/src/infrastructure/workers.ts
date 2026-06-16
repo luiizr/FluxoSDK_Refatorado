@@ -40,45 +40,82 @@ export const recordingWorker = new Worker(
 export const metricsWorker = new Worker(
   'metrics-processing',
   async (job) => {
-    const { sessionId, siteKey, visitorId, url, path: pagePath, title, events } = job.data;
-    console.log(`[WORKER] [5/5] Processando métricas no banco para sessão ${sessionId}`);
+    const { name, data } = job;
+    const { sessionId, siteKey, visitorId, metadata, events, ip } = data;
 
-    try {
-      // 1. Garantir que a sessão existe
-      await pg.query(
-        `INSERT INTO browser_sessions (site_key, visitor_id, session_id, last_seen_at)
-         VALUES ($1, $2, $3, NOW())
-         ON CONFLICT (session_id) 
-         DO UPDATE SET last_seen_at = NOW(), visitor_id = EXCLUDED.visitor_id`,
-        [siteKey, visitorId, sessionId],
-      );
-
-      // 2. Calcular métricas básicas do lote
-      const clickCount = events.filter((e: any) => e.type === 3 && e.data?.source === 2).length; // rrweb click
-      const eventCount = events.length;
-
-      // 3. Atualizar métricas da sessão
-      await pg.query(
-        `INSERT INTO session_metrics (session_id, event_count, click_count)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (id) DO NOTHING`,
-        [sessionId, eventCount, clickCount],
-      );
+    if (name === 'process-session-init') {
+      console.log(`[WORKER] [0/5] Inicializando sessão no banco: ${sessionId}`);
       
-      // Update incrementando métricas se já existir
+      // Aqui poderíamos usar ua-parser-js. Como não está instalado, salvamos metadados brutos 
+      // e o processamento pode ser feito em uma camada de serviço.
       await pg.query(
-        `UPDATE session_metrics 
-         SET event_count = event_count + $2, 
-             click_count = click_count + $3,
-             duration_seconds = duration_seconds + 5
-         WHERE session_id = $1`,
-        [sessionId, eventCount, clickCount]
+        `INSERT INTO browser_sessions (
+          site_key, visitor_id, session_id, 
+          user_agent, ip_address, screen_resolution, language,
+          last_seen_at
+        )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+         ON CONFLICT (session_id) 
+         DO UPDATE SET 
+            last_seen_at = NOW(), 
+            visitor_id = EXCLUDED.visitor_id,
+            user_agent = EXCLUDED.user_agent,
+            ip_address = EXCLUDED.ip_address,
+            screen_resolution = EXCLUDED.screen_resolution,
+            language = EXCLUDED.language`,
+        [
+          siteKey, 
+          visitorId, 
+          sessionId, 
+          metadata?.userAgent, 
+          ip, 
+          metadata?.screenResolution, 
+          metadata?.language
+        ],
       );
-      console.log(`[WORKER] Métricas atualizadas no Postgres para sessão ${sessionId}`);
+      return { success: true };
+    }
 
-    } catch (err) {
-      console.error('[WORKER] Erro no processamento de métricas:', err);
-      throw err;
+    if (name === 'process-metrics') {
+      console.log(`[WORKER] [5/5] Processando métricas no banco para sessão ${sessionId}`);
+
+      try {
+        // 1. Garantir que a sessão existe (caso o init tenha falhado ou chegado depois)
+        await pg.query(
+          `INSERT INTO browser_sessions (site_key, visitor_id, session_id, last_seen_at, ip_address)
+           VALUES ($1, $2, $3, NOW(), $4)
+           ON CONFLICT (session_id) 
+           DO UPDATE SET last_seen_at = NOW(), ip_address = EXCLUDED.ip_address`,
+          [siteKey, visitorId, sessionId, ip],
+        );
+
+        // 2. Calcular métricas básicas do lote
+        const clickCount = events.filter((e: any) => e.type === 3 && e.data?.source === 2).length; // rrweb click
+        const eventCount = events.length;
+
+        // 3. Atualizar métricas da sessão
+        await pg.query(
+          `INSERT INTO session_metrics (session_id, event_count, click_count)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (id) DO NOTHING`,
+          [sessionId, eventCount, clickCount],
+        );
+        
+        // Update incrementando métricas se já existir
+        await pg.query(
+          `UPDATE session_metrics 
+           SET event_count = event_count + $2, 
+               click_count = click_count + $3,
+               duration_seconds = duration_seconds + 5
+           WHERE session_id = $1`,
+          [sessionId, eventCount, clickCount]
+        );
+        console.log(`[WORKER] Métricas atualizadas no Postgres para sessão ${sessionId}`);
+
+      } catch (err) {
+        console.error('[WORKER] Erro no processamento de métricas:', err);
+        throw err;
+      }
     }
   },
   { connection: redisConnection as any },

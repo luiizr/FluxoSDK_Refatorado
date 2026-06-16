@@ -14,8 +14,16 @@
     return;
   }
 
-  // --- Variáveis de Estado (Movidas para o topo para evitar ReferenceError) ---
+  // --- Variáveis de Estado ---
   let events = [];
+  let settings = {
+    recordConsole: true,
+    recordCanvas: false,
+    recordInput: true,
+    maskAllInputs: false,
+    checkoutEveryNms: 30000
+  };
+
   const sessionId = sessionStorage.getItem('fluxosdk_session_id') || Math.random().toString(36).substring(2) + Date.now().toString(36);
   sessionStorage.setItem('fluxosdk_session_id', sessionId);
 
@@ -24,6 +32,16 @@
     localStorage.setItem('fluxosdk_visitor_id', id);
     return id;
   })();
+
+  const metadata = {
+    userAgent: navigator.userAgent,
+    screenResolution: `${window.screen.width}x${window.screen.height}`,
+    language: navigator.language,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    url: window.location.href,
+    path: window.location.pathname,
+    title: document.title
+  };
 
   const loadScript = (src) => {
     return new Promise((resolve, reject) => {
@@ -48,6 +66,19 @@
     });
   };
 
+  const fetchSettings = async () => {
+    try {
+      const resp = await fetch(`${backendUrl}/sites/settings/${siteKey}`);
+      if (resp.ok) {
+        const json = await resp.json();
+        settings = { ...settings, ...json.data };
+        console.log('FluxoSDK: Configurações carregadas', settings);
+      }
+    } catch (err) {
+      console.warn('FluxoSDK: Usando configurações padrão devido a erro:', err.message);
+    }
+  };
+
   function flush(sock) {
     if (events.length > 0 && sock && sock.connected) {
       console.log(`FluxoSDK [3/5]: Enviando lote de ${events.length} eventos...`);
@@ -55,9 +86,7 @@
         siteKey,
         sessionId,
         visitorId,
-        url: window.location.href,
-        path: window.location.pathname,
-        title: document.title,
+        metadata,
         events: [...events],
         sentAt: new Date().toISOString(),
       });
@@ -67,6 +96,7 @@
 
   async function start() {
     try {
+      await fetchSettings();
       await loadScript(`${backendUrl}/assets/socket.io.min.js`);
       await loadScript(`${backendUrl}/assets/rrweb.min.js`);
 
@@ -84,21 +114,40 @@
 
       socket.on('connect', () => {
         console.log('FluxoSDK [1/5]: Conectado ao servidor');
+        // Enviar handshake inicial com metadados
+        socket.emit('session-init', {
+          siteKey,
+          sessionId,
+          visitorId,
+          metadata
+        });
       });
 
       console.log('FluxoSDK: Iniciando gravação rrweb...');
-      rrweb.record({
+      
+      const recordOptions = {
         emit(event) {
           events.push(event);
-          if (events.length === 1) {
-             console.log('FluxoSDK [2/5]: Primeiro evento capturado e acumulando...');
-          }
           if (events.length >= 100) {
-            console.log('FluxoSDK [2/5]: Limite de 100 eventos atingido, forçando envio.');
             flush(socket);
           }
         },
-      });
+        checkoutEveryNms: settings.checkoutEveryNms,
+      };
+
+      // Configurações dinâmicas do rrweb
+      if (settings.recordConsole) {
+        // O rrweb-player precisa do plugin de console para reproduzir, 
+        // mas aqui estamos apenas capturando.
+        recordOptions.plugins = recordOptions.plugins || [];
+        // Nota: rrweb.getRecordConsolePlugin() se disponível
+      }
+
+      if (settings.maskAllInputs) {
+        recordOptions.maskAllInputs = true;
+      }
+
+      rrweb.record(recordOptions);
 
       setInterval(() => flush(socket), 5000);
       window.addEventListener('beforeunload', () => flush(socket));

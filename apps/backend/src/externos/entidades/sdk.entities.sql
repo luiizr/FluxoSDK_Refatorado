@@ -6,6 +6,13 @@ CREATE TABLE IF NOT EXISTS sites (
     name VARCHAR(255) NOT NULL,
     domain VARCHAR(255) NOT NULL,
     active BOOLEAN DEFAULT true,
+    settings JSONB DEFAULT '{
+      "recordConsole": true,
+      "recordCanvas": false,
+      "recordInput": true,
+      "maskAllInputs": false,
+      "checkoutEveryNms": 30000
+    }'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -23,6 +30,16 @@ CREATE TABLE IF NOT EXISTS browser_sessions (
     visitor_id VARCHAR(255),
     session_id VARCHAR(255) UNIQUE NOT NULL,
     user_identifier VARCHAR(255),
+    user_agent TEXT,
+    ip_address VARCHAR(45),
+    browser_name VARCHAR(50),
+    browser_version VARCHAR(50),
+    os_name VARCHAR(50),
+    device_type VARCHAR(50),
+    screen_resolution VARCHAR(20),
+    language VARCHAR(10),
+    country VARCHAR(100),
+    city VARCHAR(100),
     started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     context JSONB DEFAULT '{}'::jsonb

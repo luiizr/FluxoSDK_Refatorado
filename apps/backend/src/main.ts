@@ -51,16 +51,27 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 io.on('connection', (socket) => {
   console.log(`[BACKEND] Socket conectado: ${socket.id}`);
 
+  socket.on('session-init', async (data) => {
+    console.log(`[BACKEND] [0/5] Iniciando sessão ${data.sessionId}`);
+    const ip = socket.handshake.address;
+    try {
+      await metricsQueue.add('process-session-init', { ...data, ip });
+    } catch (err) {
+      console.error(`[BACKEND] Erro ao iniciar sessão no BullMQ:`, err);
+    }
+  });
+
   socket.on('rrweb-batch', async (data) => {
     console.log(`[BACKEND] [4/5] Recebido lote de ${data.events.length} eventos da sessão ${data.sessionId}`);
     
+    const ip = socket.handshake.address;
     try {
       console.log(`[BACKEND] Encaminhando para BullMQ (Redis)...`);
       // 1. Enviar para processamento de gravação (Data Lake)
       await recordingQueue.add('process-batch', data);
       
       // 2. Enviar para processamento de métricas (Postgres)
-      await metricsQueue.add('process-metrics', data);
+      await metricsQueue.add('process-metrics', { ...data, ip });
       
       console.log(`[BACKEND] Jobs adicionados com sucesso ao BullMQ.`);
     } catch (err) {

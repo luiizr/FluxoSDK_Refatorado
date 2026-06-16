@@ -17,6 +17,7 @@ export class SettingsComponent implements OnInit {
   newName = signal('');
   newDomain = signal('');
   selectedSnippet = signal<string | null>(null);
+  selectedSiteForConfig = signal<Site | null>(null);
   isLoading = signal(false);
 
   async ngOnInit() {
@@ -60,7 +61,29 @@ export class SettingsComponent implements OnInit {
     }
   }
 
+  openSettings(site: Site) {
+    // Clonar para evitar mutação direta antes de salvar
+    this.selectedSiteForConfig.set(JSON.parse(JSON.stringify(site)));
+  }
+
+  async saveSettings() {
+    const site = this.selectedSiteForConfig();
+    if (!site || !site.settings) return;
+
+    this.isLoading.set(true);
+    try {
+      await this.siteService.updateSettings(site.id, site.settings);
+      this.selectedSiteForConfig.set(null);
+      await this.loadSites();
+    } catch (err) {
+      alert('Erro ao salvar configurações');
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
   closeModal() {
     this.selectedSnippet.set(null);
+    this.selectedSiteForConfig.set(null);
   }
 }

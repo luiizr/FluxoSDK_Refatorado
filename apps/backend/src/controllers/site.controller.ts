@@ -81,4 +81,46 @@ export class SiteController {
       return res.status(500).json({ ok: false, message: 'Erro ao buscar snippet' });
     }
   };
+
+  getSettingsByPublicKey = async (req: Request, res: Response) => {
+    try {
+      const { publicKey } = req.params;
+      const result = await pg.query(
+        `SELECT s.settings 
+         FROM sites s 
+         JOIN site_keys sk ON s.id = sk.site_id 
+         WHERE sk.public_key = $1 AND sk.active = true AND s.active = true`,
+        [publicKey]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ ok: false, message: 'Configurações não encontradas' });
+      }
+
+      return res.status(200).json({ ok: true, data: result.rows[0].settings });
+    } catch (error) {
+      return res.status(500).json({ ok: false, message: 'Erro ao buscar configurações' });
+    }
+  };
+
+  updateSettings = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { settings } = req.body;
+      const user = (req as any).user;
+
+      const result = await pg.query(
+        'UPDATE sites SET settings = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
+        [JSON.stringify(settings), id, user.id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ ok: false, message: 'Site não encontrado' });
+      }
+
+      return res.status(200).json({ ok: true, data: result.rows[0] });
+    } catch (error) {
+      return res.status(500).json({ ok: false, message: 'Erro ao atualizar configurações' });
+    }
+  };
 }
